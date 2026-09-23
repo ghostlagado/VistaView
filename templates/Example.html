@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="600">
+    <title>Dashboard | Vista View</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/css/dash.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="shortcut icon" href="../static/img/faviconsvg.svg" type="image/x-icon">
+</head>
+<body data-bs-theme="dark">
+    <div class="d-flex p-4 align-items-center">
+        <img src="../static/img/logo.svg" class="logo">
+        <marquee style="margin-top: 10px;" class="d-flex gap-2" direction="left" id="mq"></marquee>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 justify-content-center p-4">
+        <div class="d-flex flex-column gap-2" style="flex: 1; flex-basis: 400px;">
+            <div class="card" style="flex-grow: 1;">
+                <div class="card-header">
+                    <p class="fw-bold">UNIDADES</p>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group" id="listUni">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>123456 - PR - CONTRATO 1</strong>
+                            <span class="badge rounded-pill fw-bold text-bg-success">20%</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>123456 - PR - CONTRATO 2</strong>
+                            <span class="badge rounded-pill fw-bold text-bg-success">16%</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>123456 - PR - CONTRATO 3</strong>
+                            <span class="badge rounded-pill fw-bold text-bg-success">11%</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card" style="flex-grow: 1;">
+                <div class="card-header">
+                    <p class="fw-bold">SUPERVISORES</p>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group" id="listSup">
+                        <li class="list-group-item">
+                            <strong>100 - NOME DO SUPERBISOR</strong>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>50 - NOME DO SUPERBISOR</strong>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>10 - NOME DO SUPERBISOR</strong>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-2 divMid" style="flex: 5; flex-basis: 400px;">
+            <!-- <img src="../static/img/gorro.png" class="gorro"> -->
+            <div><canvas id="grafDia"></canvas></div>
+            <div class="d-flex gap-2 p-4 flex-wrap" style="line-height: .1;">
+                <div class="card flex-column gap-1 p-2 bd-green rounded" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
+                    <p class="fs-6">META MES</p>
+                    <p class="fs-6 fw-bold" id="metaMes">
+                        200.000
+                        <!-- <span class="spinner-border spinner-border-sm text-light" role="status"></span> -->
+                    </p>
+                </div>
+                <div class="card flex-column gap-1 p-2 bd-green rounded" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
+                    <p class="fs-6">META DIA</p>
+                    <p class="fs-6 fw-bold" id="metaDia">
+                        <!-- <span class="spinner-border spinner-border-sm text-light" role="status"></span> -->
+                         12.000
+                    </p>
+                </div>
+                <div class="card flex-column gap-1 p-2 rounded bd-red" id="ttm" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
+                    <p class="fs-6">TOTAL MES</p>
+                    <p class="fs-6 fw-bold" id="tm">
+                        <!-- <span class="spinner-border spinner-border-sm text-light" role="status"></span> -->
+                         128.745
+                    </p>
+                </div>
+                <div class="card bd-green flex-column gap-1 p-2 rounded" id="ttd" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
+                    <p class="fs-6">TOTAL DIA</p>
+                    <p class="fs-6 fw-bold" id="relDia">
+                        <!-- <span class="spinner-border spinner-border-sm text-light" role="status"></span> -->
+                         13.578
+                    </p>
+                </div>
+                <div class="card bd-green flex-column gap-1 p-2 rounded" id="vsm" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
+                    <p class="fs-6">VISITAS MES</p>
+                    <p class="fs-6 fw-bold" id="vm">
+                        <!-- <span class="spinner-border spinner-border-sm text-light" role="status"></span> -->
+                        705
+                    </p>
+                </div>
+                <div class="card bd-green flex-column gap-1 p-2 rounded" id="vsd" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
+                    <p class="fs-6">VISITAS DIA</p>
+                    <p class="fs-6 fw-bold" id="vh">
+                        <!-- <span class="spinner-border spinner-border-sm text-light" role="status"></span> -->
+                        80
+                    </p>
+                </div>
+                <div class="card bd-red flex-column gap-1 p-2 rounded" id="gm" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
+                    <p class="fs-6">GAP MENSAL</p>
+                    <p class="fs-6 fw-bold" id="gpm">
+                        <!-- <span class="spinner-border spinner-border-sm text-light" role="status"></span> -->
+                         - 71.255
+                    </p>
+                </div>
+                <div class="card bd-green flex-column gap-1 p-2 rounded" id="gd" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
+                    <p class="fs-6">GAP DIARIO</p>
+                    <p class="fs-6 fw-bold" id="gpd">
+                        <!-- <span classspinner-border spinner-border-sm text-light" role="status"></span> -->
+                         1.578
+                    </p>
+                </div>
+                <div class="card bd-green flex-column gap-1 p-2 rounded" id="esc" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
+                    <p class="fs-6">ESCALONADAS</p>
+                    <p class="fs-6 fw-bold" id="escalonadas">
+                        <!-- <span class="spinner-border spinner-border-sm text-light" role="status"></span> -->
+                        0
+                    </p>
+                </div>
+            </div>
+            <br>
+        </div>
+
+        <div class="d-flex flex-column gap-2" style="flex: 1; flex-basis: 400px;">
+            <div class="card justify-content-between align-items-center p-2 d-flex flex-row text-end" style="flex-grow: 1; line-height: 1.5;">
+                <div class="d-flex p-2">
+                    <span class="badge text-bg-light">
+                        <p class="fs-5 fw-bold">ACAO3</p>
+                        <span class="fs-5 fw-bold" id="valorAct">
+                            R$20.00
+                        </span>
+                    </span>
+                </div>
+                <div class="d-flex flex-column text-end text-truncate">
+                    <span>I-O | Guilherme Breve</span>
+                    <span id="date"></span>
+                </div>
+            </div>
+            <div class="card d-flex justify-content-around flex-row flex-no-wrap p-2 gap-2" style="flex-grow: 1;">
+                <div style="line-height: .9;" id="perfDd">
+                    <p class="fs-4 fw-bold">Perfomance.</p>
+                    <p class="fs-6">Escalonamento de tarefas!</p>
+                    <div class="d-flex flex-column gap-2">
+                        <span class="fw-bold text-truncate" style="color: #a7c957;">
+                            <i class="bi bi-caret-up-fill"></i> 115.48900 - 86%
+                        </span>
+                        <span class="fw-bold text-truncate" style="color: #e63946;">
+                            <i class="bi bi-caret-down-fill"></i> 13.256 - 14%
+                        </span>
+                    </div>
+                </div>
+                <div style="width: 150px; padding: 20px; overflow: visible;">
+                    <canvas id="piePerf"></canvas>
+                </div>
+            </div>
+            <div class="card2" style="flex-grow: 1;">
+                <div class="tools">
+                    <div class="circle">
+                        <span class="red box"></span>
+                    </div>
+                    <div class="circle">
+                        <span class="yellow box"></span>
+                    </div>
+                    <div class="circle">
+                        <span class="green box"></span>
+                    </div>
+                </div>
+                <div class="card__content p-2">
+                    <p class="fs-4 fw-bold">Realizado por Gerência.</p>
+                    <ul class="form-control" id="gers">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                                <div class="fw-bold text-truncate">
+                                    Nome do Gerente 1
+                                </div>
+                            </div>
+                            <span class="badge text-bg-light rounded-pill" style="font-size: 14px;">
+                                25.000
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                                <div class="fw-bold text-truncate">
+                                    Nome do Gerente 2
+                                </div>
+                            </div>
+                            <span class="badge text-bg-light rounded-pill" style="font-size: 14px;">
+                                25.000
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                                <div class="fw-bold text-truncate">
+                                    Nome do Gerente 3
+                                </div>
+                            </div>
+                            <span class="badge text-bg-light rounded-pill" style="font-size: 14px;">
+                                25.000
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
+</html> 

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="300">
+    <link rel="stylesheet" href="../static/style/index.css">
+    <link rel="shortcut icon" href="../static/favicon.png" type="image/x-icon">
+    <title>Vista View</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="../static/js/base.js"></script>
+</head>
+<body data-bs-theme="dark">
+    <div class="d-flex justify-content-between align-items-center text-end p-2">
+        <img src="../static/Gpslogo.png" width="200">
+        <p class="fs-5"><b>Regional Paraná Interior</b><br> I-O | Guilherme breve</p>
+    </div>
+    <div class="d-flex flex-column">
+        <div class="d-flex gap-2 p-4 flex-wrap">
+            <div class="card p-2 d-flex flex-column justify-content-center border-bottom metric" style="border-left: 10px solid #50cd89;">
+                <div class="d-flex gap-2">
+                    <i class="bi bi-bar-chart-fill"></i>
+                    <p class="fs-6">Tarefas Mês</p>
+                </div>
+                <p class="fs-2 fw-bold text-center" id="tm">
+                    <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                </p>
+            </div>
+            <div class="card p-2 d-flex flex-column justify-content-center border-bottom metric" style="border-left: 10px solid #219ebc;">
+                <div class="d-flex gap-2">
+                    <i class="bi bi-calendar-check-fill"></i>
+                    <p class="fs-6">Visitas Mês</p>
+                </div>
+                <p class="fs-2 fw-bold text-center" id="vm">
+                    <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                </p>
+            </div>
+            <div class="card p-2 d-flex flex-column justify-content-center border-bottom metric" style="border-left: 10px solid #6a4c93;">
+                <div class="d-flex gap-2">
+                    <i class="bi bi-bookmark-check-fill"></i>
+                    <p class="fs-6">Visitas Hoje</p>
+                </div>
+                <p class="fs-2 fw-bold text-center" id="vh">
+                    <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                </p>
+            </div>
+            <div class="card p-2 d-flex flex-column justify-content-center border-bottom metric" style="border-left: 10px solid #8f1343;">
+                <div class="d-flex justify-content-between">
+                    <div class="d-flex gap-2">
+                        <i class="bi bi-bar-chart-steps"></i>
+                        <p class="fs-6">Escalonadas</p>
+                        <div id="bad" hidden>
+                            <i class="bi bi-caret-down-fill" style="color: red;"></i>
+                        </div>
+                        <div id="good" hidden>
+                            <i class="bi bi-caret-up-fill" style="color: greenyellow"></i>
+                        </div>
+                    </div>
+                </div>
+                <p class="fs-2 fw-bold text-center d-flex justify-content-center" id="escalonadas">
+                    <span class="spinner-grow spinner-grow-sm" id="teste" aria-hidden="true"></span>
+                </p>
+            </div>
+        </div>
+        <div class="d-flex gap-2 p-4 flex-wrap">
+            <div class="metric2 p-1 d-flex flex-column bg-coffee">
+                <div class="d-flex gap-2">
+                    <i class="bi bi-easel3-fill"></i>
+                    <p class="fs-6">Meta Mensal</p>
+                </div>
+                <p class="fs-2 fw-bold text-center d-flex justify-content-center" id="metaMes">
+                    <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                </p>
+            </div>
+            <div class="metric2 p-1 d-flex flex-column bg-darkblue">
+                <div class="d-flex gap-2">
+                    <i class="bi bi-vignette"></i>
+                    <p class="fs-6">Meta Diaria</p>
+                </div>
+                <p class="fs-2 fw-bold text-center d-flex justify-content-center" id="metaDia">
+                    <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                </p>
+            </div>
+            <div class="metric2 p-1 d-flex flex-column bg-violet">
+                <div class="d-flex gap-2">
+                    <i class="bi bi-stack"></i>
+                    <p class="fs-6">Realizado Dia</p>
+                </div>
+                <p class="fs-2 fw-bold text-center d-flex justify-content-center" id="relDia">
+                    <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                </p>
+            </div>
+            <div class="metric2 p-1 d-flex flex-column bg-green2" id="cardFalta">
+                <div class="d-flex gap-2">
+                    <i class="bi bi-node-minus-fill"></i>
+                    <p class="fs-6">Precisa no Dia</p>
+                </div>
+                <p class="fs-2 fw-bold text-center d-flex justify-content-center" id="faltaDia">
+                    <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="d-flex p-4">
+        <div class="d-flex flex-column p-4 bg-card">
+            <p>TOP 3 SUPERVISORES COM <b>MAIS VISITAS</b> 🏆🏆🏆</p>
+            <p id="testeeee"></p>
+            <ul class="list-group" id="list">
+            </ul>
+        </div>
+        <div>
+
+        </div>
+    </div>
+</body>
+</html>

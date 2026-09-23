@@ -1,0 +1,48 @@
+body, html{
+    width: 100%;
+    height: 100%;
+    --green: #50cd89;
+    --darkBlue: #003049;
+    --violet: #6a4c93;
+    --wine: #8f1343;
+}
+.metric{
+    flex-grow: 1;
+    flex-basis: 250px;
+}
+
+.metric2 i{
+    font-size: 20px;
+}
+.metric2{
+    border: 2px solid gray;
+    border-radius: 10px;
+    height: 100px;
+    flex-grow: 1;
+    flex-basis: 125px;
+}
+.bg-green{
+    background: var(--green);
+}
+.bg-green2{
+    background: #588157;
+}
+.bg-red{
+    background: #e5383b;
+}
+.bg-skyblue{
+    background: #669bbc;
+}
+.bg-coffee{
+    background: #001219;
+}
+.bg-darkblue{
+    background: var(--darkBlue);
+}
+.bg-violet{
+    background: var(--violet);
+}
+.bg-card{
+    background-color: #333;
+    border-radius: 10px;
+}
