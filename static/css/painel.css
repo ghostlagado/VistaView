@@ -1,0 +1,412 @@
+/*
+ * Painel para TV 16:9. Tudo cabe numa tela: sem rolagem vertical, tipografia em vw para
+ * escalar em qualquer resolução, e contraste alto para leitura à distância.
+ */
+
+:root {
+    --fundo: #0b1015;
+    --superficie: #141c24;
+    --superficie-2: #1b252f;
+    --borda: #2a3745;
+    --texto: #eef4fa;
+    --texto-suave: #9fb0c1;
+    --verde: #57c785;
+    --vermelho: #e5484d;
+    --ambar: #f0a92c;
+    --azul: #3d9be9;
+    --marca: #00a6a0;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--fundo);
+    color: var(--texto);
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: clamp(12px, 1.05vw, 30px);
+    line-height: 1.25;
+}
+
+.painel {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+    gap: .7vmin;
+    padding: .7vmin;
+}
+
+/* ---------------------------------------------------------- cabeçalho */
+.cabecalho {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 1.2vw;
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: .6vmin;
+    padding: .8vmin 1.4vmin;
+}
+
+.cabecalho__marca {
+    display: flex;
+    align-items: center;
+    gap: .9vw;
+}
+
+.cabecalho__logo {
+    height: 3.6vmin;
+    width: auto;
+}
+
+.cabecalho__titulo {
+    font-size: 1.5em;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+
+.cabecalho__regional {
+    font-size: 1.05em;
+    color: var(--texto-suave);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: .6em;
+}
+
+.cabecalho__hora {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.05;
+}
+
+.cabecalho__data {
+    font-size: .72em;
+    color: var(--texto-suave);
+    text-transform: capitalize;
+}
+
+.relogio {
+    font-variant-numeric: tabular-nums;
+    font-size: 1.4em;
+    font-weight: 700;
+}
+
+.selos {
+    display: flex;
+    align-items: center;
+    gap: .5vw;
+}
+
+.selo {
+    display: inline-flex;
+    align-items: center;
+    gap: .4em;
+    padding: .35em .8em;
+    border-radius: 999px;
+    font-size: .8em;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid var(--borda);
+    background: var(--superficie-2);
+    color: var(--texto-suave);
+}
+
+.selo--ok { color: var(--verde); border-color: var(--verde); }
+.selo--alerta { color: var(--ambar); border-color: var(--ambar); }
+.selo--erro { color: var(--vermelho); border-color: var(--vermelho); }
+.selo--demo { color: #0b1015; background: var(--ambar); border-color: var(--ambar); }
+
+.selo__ponto {
+    width: .55em;
+    height: .55em;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* ---------------------------------------------------------- corpo */
+.corpo {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 3fr) minmax(0, 1.5fr);
+    gap: .7vmin;
+    min-height: 0;
+}
+
+.coluna {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    gap: .7vmin;
+    min-height: 0;
+}
+
+/* Rankings em cima, cotações embaixo: a faixa inferior é só uma linha de cartões. */
+.coluna--esquerda {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.coluna--direita {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.35fr);
+}
+
+.coluna--centro {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: .7vmin;
+    min-height: 0;
+}
+
+/* Desempenho e gerências dividem a coluna direita. */
+.coluna--direita {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.35fr);
+}
+
+.cartao {
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: .6vmin;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.cartao__cabeca {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: .7vmin 1vmin;
+    border-bottom: 1px solid var(--borda);
+    font-size: .85em;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--texto-suave);
+    text-transform: uppercase;
+}
+
+.cartao__corpo {
+    padding: .7vmin 1vmin;
+    overflow: hidden;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: .5vmin;
+}
+
+.lista__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .8em;
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--superficie-2);
+    border-radius: .4vmin;
+    padding: .9vmin 1vmin;
+    font-size: 1.05em;
+}
+
+.lista__nome {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lista__valor {
+    font-variant-numeric: tabular-nums;
+    color: var(--texto-suave);
+    white-space: nowrap;
+}
+
+.lista__posicao {
+    color: var(--marca);
+    font-weight: 700;
+    min-width: 1.2em;
+}
+
+.lista__vazio {
+    font-style: italic;
+    color: var(--texto-suave);
+    padding: .4vmin 0;
+}
+
+/* ---------------------------------------------------------- KPIs */
+.kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7vmin;
+}
+
+.kpis--metas {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.kpi {
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-left: .5vmin solid var(--borda);
+    border-radius: .5vmin;
+    padding: .8vmin 1vmin;
+    display: flex;
+    flex-direction: column;
+    gap: .2vmin;
+    min-width: 0;
+}
+
+.kpi__rotulo {
+    font-size: .72em;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--texto-suave);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kpi__valor {
+    font-size: 1.9em;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kpi__nota {
+    font-size: .68em;
+    color: var(--texto-suave);
+}
+
+.kpi--ok { border-left-color: var(--verde); }
+.kpi--ok .kpi__valor { color: var(--verde); }
+.kpi--erro { border-left-color: var(--vermelho); }
+.kpi--erro .kpi__valor { color: var(--vermelho); }
+.kpi--neutro .kpi__valor { color: var(--texto); }
+.kpi--info { border-left-color: var(--azul); }
+
+.grafico {
+    position: relative;
+    min-height: 0;
+    padding: .6vmin 1vmin 1vmin;
+    flex: 1;
+}
+
+.grafico canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* ---------------------------------------------------------- desempenho */
+.desc {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: .8vmin;
+    align-items: center;
+    height: 100%;
+}
+
+.desc__legenda {
+    display: flex;
+    flex-direction: column;
+    gap: .8vmin;
+    min-width: 0;
+}
+
+.desc__linha {
+    display: flex;
+    justify-content: space-between;
+    gap: .6em;
+    font-size: .95em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.desc__linha span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 700;
+}
+
+.desc__circulo {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+}/* ---------------------------------------------------------- cotações */
+.cotacoes {
+    display: flex;
+    flex-direction: column;
+    gap: .5vmin;
+}
+
+.cotacao {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .6em;
+    background: var(--superficie-2);
+    border-radius: .4vmin;
+    padding: .6vmin .8vmin;
+}
+
+.cotacao__simbolo { font-weight: 800; letter-spacing: .04em; flex: none; }
+.cotacao__preco { font-size: 1.15em; font-weight: 700; font-variant-numeric: tabular-nums; margin-left: auto; }
+.cotacao__var { font-size: .8em; font-variant-numeric: tabular-nums; }
+.cotacao__hora { font-size: .65em; color: var(--texto-suave); }
+.cotacao--subiu .cotacao__var { color: var(--verde); }
+.cotacao--desceu .cotacao__var { color: var(--vermelho); }
+.cotacao--atual { border-left: .35vmin solid var(--verde); }
+.cotacao--velha { border-left: .35vmin solid var(--ambar); }
+.cotacao--indisponivel { border-left: .35vmin solid var(--vermelho); }
+
+/* ---------------------------------------------------------- rodapé */
+.rodape {
+    display: flex;
+    align-items: center;
+    gap: .6vw;
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: .6vmin;
+    padding: .55vmin 1vmin;
+    font-size: .78em;
+    color: var(--texto-suave);
+    overflow: hidden;
+    white-space: nowrap;
+    min-height: 3.4vmin;
+}
+
+.rodape__item {
+    background: var(--superficie-2);
+    border-radius: 999px;
+    padding: .25em .7em;
+}
+
+.rodape__rotulo {
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.rodape__vazio { font-style: italic; }
+
+/* Em telas baixas a prioridade é continuar legível, não caber inteiro. */
+@media (max-height: 600px) {
+    html { font-size: 12px; }
+    .painel { height: auto; }
+    html, body { overflow: auto; }
+}
