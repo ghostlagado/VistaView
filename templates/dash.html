@@ -17,6 +17,9 @@
             </div>
             <div class="cabecalho__regional">
                 <span>REGIONAL {{ gr.split(' ')[0]|upper }}</span>
+                {% if demo %}
+                <span class="selo selo--demo"><span class="selo__ponto"></span><span>DEMO</span></span>
+                {% endif %}
             </div>
             <div class="cabecalho__hora">
                 <span class="relogio" id="relogio">--:--</span>
