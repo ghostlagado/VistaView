@@ -20,4 +20,8 @@ def _encerrar(signum, _frame):
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, _encerrar)
     signal.signal(signal.SIGTERM, _encerrar)
-    socketio.run(app, host=HOST, port=PORT)
+    services.iniciar_todos(app)
+    try:
+        socketio.run(app, host=HOST, port=PORT)
+    finally:
+        services.encerrar_todos(app)
