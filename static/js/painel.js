@@ -263,8 +263,8 @@
     }
 
     // O valor da ação já era mostrado (badge GGPS3) e vem de `/actions/value/`.
-    // A fase 7 troca isso por uma lista de até cinco símbolos vindos do servidor;
-    // até lá a faixa continua alimentada para não perder informação.
+    // A faixa de até cinco símbolos chega pelo snapshot ou por `/actions/cotacoes/`;
+    // este caminho só pinta quando nenhum dos dois respondeu ainda.
     async function buscarValorAcao() {
         try {
             const resposta = await fetch('/actions/value/');
@@ -409,6 +409,14 @@
         return resposta.json();
     }
 
+    /* Cotação é igual para qualquer recorte e vem do cache de um processo compartilhado,
+     * então não entra no mapa de indicadores: tem rota e formato próprios. */
+    async function porCotacoes() {
+        const resposta = await fetch('/actions/cotacoes/');
+        if (!resposta.ok) throw new Error('cotações: HTTP ' + resposta.status);
+        return resposta.json();
+    }
+
     /* Sem nenhuma cifra carregada, a TV não pode ficar com cartões mudos: é o estado em
      * que o painel fica enquanto o warehouse está fora do ar. */
     function pintarSemDados() {
@@ -462,6 +470,11 @@
             p.metaDia = Math.round(p.metaMes / Math.max(diasNoMes - agora.getDate(), 1));
             if ('totalMes' in p) p.gapMes = Number(p.totalMes) - p.metaMes;
             if ('totalDia' in p) p.gapDia = Number(p.totalDia) - p.metaDia;
+        }
+        try {
+            p.cotacoes = await porCotacoes();
+        } catch (e) {
+            console.warn('[painel] cotações indisponíveis:', e);
         }
         p.atualizadoEm = new Date().toISOString();
         pintar(p);

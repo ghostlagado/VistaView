@@ -181,7 +181,7 @@ def graph_days_ant(campo, gr, agora=None):
 # COTAÇÕES
 # ======================================================================
 def cotacoes(agora=None):
-    """Série sintética com a mesma forma que a fase 7 vai receber do provedor."""
+    """Faixa sintética com as mesmas chaves de `services.cotacoes.AtualizadorCotacoes`."""
     agora = agora or dt.now()
     lista = []
     for simbolo, base in COTACOES_DEMO:
@@ -193,6 +193,7 @@ def cotacoes(agora=None):
             "atual": True,
             "indisponivel": False,
             "cotizadoEm": agora.strftime("%H:%M"),
+            "buscadoEm": agora.isoformat(),
             "provedor": "demo",
         })
     return lista
@@ -202,11 +203,14 @@ def cotacoes(agora=None):
 # AGREGADO
 # ======================================================================
 def painel(opt, gr, agora=None, meta_percentual=None):
-    """Mesmo objeto devolvido por `services.metricas.painel`, com cotações sintéticas."""
+    """Objeto idêntico ao de `services.metricas.painel`, com cifras sintéticas.
+
+    Cotações não entram aqui: em qualquer modo quem monta o painel pega a faixa de um
+    provedor próprio (`app.config["VISTA_COTACOES"]`), então as duas fontes têm exatamente
+    as mesmas chaves.
+    """
     import sys
 
     from services.metricas import montar_painel
 
-    dados = montar_painel(sys.modules[__name__], opt, gr, agora, meta_percentual)
-    dados["cotacoes"] = cotacoes(agora or dt.now())
-    return dados
+    return montar_painel(sys.modules[__name__], opt, gr, agora, meta_percentual)

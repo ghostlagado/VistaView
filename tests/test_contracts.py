@@ -44,6 +44,9 @@ def frontend_paths(app_root):
 
     for rota in ROTAS_ITEM_RE.findall(ROTAS_BLOCO_RE.search(painel_source(app_root)).group(1)):
         paths.add(rota + "PLACEHOLDER/PLACEHOLDER")
+    # Chamadas literais de `painel.js` (cotações e o valor antigo da ação) não levam recorte.
+    for rota in FETCH_RE.findall(painel_source(app_root)):
+        paths.add(rota)
     return paths
 
 
@@ -64,18 +67,41 @@ def test_toda_chamada_fetch_existe_no_back_end(app, app_root):
 
 
 def test_os_dois_caminhos_de_pintura_tem_o_mesmo_payload(app, app_root, capture_sql):
-    """Socket.IO entrega `metricas.painel()`; sem socket a página remonta o mesmo objeto.
+    """Socket.IO entrega o snapshot; sem socket a página remonta o mesmo objeto.
 
     Se um campo nascer só de um lado, a TV mostra números diferentes conforme a conexão.
     """
-    from services import metricas
-
     with app.app_context():
-        campos_do_snapshot = set(metricas.painel("GR", "Parana Interior"))
+        atualizador = app.extensions["vista_atualizador"]
+        campos_do_snapshot = set(atualizador.calcular(app))
     cobertos_pelo_http = rotas_http(painel_source(app_root)) | DERIVADOS_NO_NAVEGADOR
+    # Cotação não é por recorte: tem rota própria, fora do mapa de indicadores.
+    cobertos_pelo_http.add("cotacoes")
 
     assert campos_do_snapshot - cobertos_pelo_http == SÓ_NO_SNAPSHOT
     assert cobertos_pelo_http - campos_do_snapshot == set()
+
+
+def test_a_rota_de_cotacoes_devolve_a_faixa_do_cache(app):
+    """O caminho HTTP de fallback precisa da mesma lista que o snapshot entrega."""
+    resposta = app.test_client().get("/actions/cotacoes/")
+    assert resposta.status_code == 200
+    lista = resposta.get_json()
+    assert isinstance(lista, list) and lista
+    assert {"simbolo", "preco", "variacao", "cotizadoEm", "buscadoEm", "provedor",
+            "atual", "indisponivel"} <= set(lista[0])
+
+
+def test_a_rota_de_cotacoes_nao_consulta_o_provedor(app, monkeypatch):
+    """A rota lê cache: abrir o painel não pode gastar a cota mensal em cada requisição."""
+    import services.cotacoes as cotacoes
+
+    def estourar(*args, **kwargs):
+        raise AssertionError("rota HTTP não pode chamar o provedor")
+
+    monkeypatch.setattr(cotacoes, "buscar", estourar)
+    assert app.test_client().get("/actions/cotacoes/").status_code == 200
+    assert app.test_client().get("/actions/value/").status_code == 200
 
 
 def test_pagina_principal_renderiza_com_recorte(app, client):

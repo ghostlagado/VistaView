@@ -10,6 +10,7 @@ from flask_cors import CORS
 from utils.config import SETTINGS
 from utils.db import db
 from services import metricas, showcase
+from services.cotacoes import AtualizadorCotacoes, normalizar_simbolos
 from services.realtime import AtualizadorPainel, registrar_handlers
 import services
 
@@ -40,6 +41,29 @@ def create_app(settings=SETTINGS):
     indicadores = showcase if settings.demo else metricas
     app.config["VISTA_FONTE"] = indicadores
 
+    # Única decisão sobre de onde vêm as cotações. Em demonstração a faixa é sintética,
+    # então nenhuma requisição sai para o provedor; no modo real um único greenlet é o
+    # cliente da API e todos os leitores pegam o cache.
+    if settings.demo:
+        cotar = showcase.cotacoes
+    else:
+        atualizador_cotacoes = AtualizadorCotacoes(
+            simbolos=normalizar_simbolos(settings.cotacoes_simbolos),
+            token=settings.action_api,
+            intervalo=settings.cotacoes_segundos,
+            velho_depois_min=settings.cotacoes_velho_min,
+        )
+        app.extensions["vista_cotacoes"] = atualizador_cotacoes
+        services.registrar(atualizador_cotacoes)
+        cotar = atualizador_cotacoes.cotacoes
+    app.config["VISTA_COTACOES"] = cotar
+
+    def calcular_painel(opt, gr, agora=None, meta_percentual=None):
+        """As cifras do recorte mais a faixa de cotações, sempre lida do cache."""
+        dados = indicadores.painel(opt, gr, agora, meta_percentual)
+        dados["cotacoes"] = cotar()
+        return dados
+
     # Uma instância por app (ver utils/socket.py).
     socketio = criar_socketio()
     socketio.init_app(app)
@@ -49,7 +73,7 @@ def create_app(settings=SETTINGS):
         socketio,
         recorte=(settings.default_opt, settings.default_gr),
         intervalo=settings.atualizacao_segundos,
-        calcular=indicadores.painel,
+        calcular=calcular_painel,
         nome_ciclo="demo" if settings.demo else "painel",
     )
     app.extensions["vista_atualizador"] = atualizador

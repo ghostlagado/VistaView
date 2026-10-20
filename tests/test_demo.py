@@ -94,8 +94,7 @@ def test_payload_do_demo_tem_as_mesmas_chaves_do_real(app, capture_sql):
     with app.app_context():
         reais = set(metricas.painel("GR", "Parana Interior", agora))
     sinteticos = set(showcase.painel("GR", "Parana Interior", agora))
-    assert sinteticos - reais == {"cotacoes"}
-    assert reais - sinteticos == set()
+    assert sinteticos == reais
 
 
 @pytest.mark.parametrize("rota,chave", [
@@ -177,7 +176,11 @@ def test_o_painel_real_nao_marca_demo(app):
 def test_o_ciclo_de_atualizacao_usa_a_fonte_do_demo(demo):
     atualizador = demo.extensions["vista_atualizador"]
     assert atualizador.nome_ciclo == "demo"
-    assert atualizador._calcular == showcase.painel
+    assert demo.config["VISTA_FONTE"] is showcase
+    assert demo.config["VISTA_COTACOES"] is showcase.cotacoes
+
+    dados = atualizador.calcular(demo)
+    assert {c["provedor"] for c in dados["cotacoes"]} == {"demo"}
 
 
 def test_o_ciclo_real_nao_se_confunde_com_demo(app):
