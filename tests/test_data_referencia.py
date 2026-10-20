@@ -4,8 +4,7 @@ import datetime as real_dt
 
 import pytest
 
-import routes.general as general
-import routes.tarefas as tarefas
+import services.metricas as metricas
 
 
 class FrozenDT:
@@ -19,8 +18,7 @@ class FrozenDT:
 @pytest.fixture()
 def freeze(monkeypatch, request):
     moment = request.param
-    for module in (general, tarefas):
-        monkeypatch.setattr(module, "dt", FrozenDT(moment))
+    monkeypatch.setattr(metricas, "dt", FrozenDT(moment))
     return moment
 
 
