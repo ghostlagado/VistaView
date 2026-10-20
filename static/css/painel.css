@@ -143,9 +143,11 @@ html, body {
     min-height: 0;
 }
 
-/* Rankings em cima, cotações embaixo: a faixa inferior é só uma linha de cartões. */
+/* Rankings em cima, cotações embaixo. A terceira linha tem fração própria porque
+ * `auto` é o tamanho do conteúdo: com cinco ativos a faixa passava da tela e o cartão
+ * saía cortado a 720p. */
 .coluna--esquerda {
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .95fr);
 }
 
 .coluna--direita {
@@ -347,7 +349,9 @@ html, body {
     position: relative;
     height: 100%;
     min-height: 0;
-}/* ---------------------------------------------------------- cotações */
+}
+
+/* ---------------------------------------------------------- cotações */
 .cotacoes {
     display: flex;
     flex-direction: column;
@@ -356,12 +360,18 @@ html, body {
 
 .cotacao {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: baseline;
     gap: .6em;
     background: var(--superficie-2);
     border-radius: .4vmin;
     padding: .6vmin .8vmin;
+    /* Até cinco ativos têm de caber sem rolagem: a linha cresce até um teto e
+     * encolhe depois dele, em vez de sair da tela. */
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 5.5vmin;
+    overflow: hidden;
 }
 
 .cotacao__simbolo { font-weight: 800; letter-spacing: .04em; flex: none; }
