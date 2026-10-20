@@ -1,8 +1,14 @@
+from os import getenv
+
 opts = {
     'GER': 'cr.Gerente',
     'GR': 'cr.GerenteRegional',
     'DIR': 'cr.DiretorRegional'
 }
+
+# Regional e recorte exibidos por padrão no dashboard (configuráveis via .env).
+DEFAULT_GR = getenv("DEFAULT_GR", "Parana Interior")
+DEFAULT_OPT = getenv("DEFAULT_OPT", "GR")
 
 CHECKLISTS_VISITAS = (
     '7c7d1611-01f5-4f6a-9652-4e24bb1ce07a',
