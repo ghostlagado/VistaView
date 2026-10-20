@@ -101,6 +101,56 @@ preservar a última cotação válida. `ACTION_API` continua o mesmo nome de var
 consumidor atual quebra, e o `GGPS3` que a tela já mostra volta a funcionar assim que o
 token for colocado, já que sem token a brapi devolve 401 exatamente para ele.
 
+## Evidência medida nos cabeçalhos da resposta da brapi
+
+```
+HTTP/2 brapi.dev
+cache-control: s-maxage=300, stale-while-revalidate=60
+ratelimit-limit: 20
+ratelimit-remaining: 19
+ratelimit-reset: 60
+x-brapi-concurrency-limit: 1
+access-control-expose-headers: RateLimit-Limit,RateLimit-Remaining,RateLimit-Reset,Retry-After,...
+```
+
+Três consequências de projeto, todas tiradas de medição e não de suposição:
+
+- **`x-brapi-concurrency-limit: 1`** — uma requisição concorrente por token. É a prova
+  numérica do requisito "um único processo compartilhado, nunca uma chamada por cliente
+  conectado": com duas TVs chamando ao mesmo tempo, a segunda já seria recusada.
+- **`ratelimit-limit: 20` por janela de 60 s** — o ciclo pode ser de 60 s sem estourar a
+  janela por minuto; o teto mensal de 15.000 é o que limita (≈700/dia útil, ver acima).
+- **`s-maxage=300`** — o preço na resposta da brapi é reutilizado por 5 minutos no CDN
+  dela. Consultar a cada 10 s não deixa a tela mais atual: só gasta cota. Daí
+  `COTACOES_SEGUNDOS = 300` como padrão.
+
+Isso também resolve a contradição do item 4 da seção anterior: a cadência real medida foi
+de **~3 minutos de atraso** (cotação às 15:15 consultada às 15:18), não os 30 min da
+página de planos nem os 1,5 min do primeiro teste. O `VELHO_DEPOIS_MIN = 15` fica acima do
+atraso normal para não viver piscando, e abaixo de um problema real.
+
+## Implementado na fase 7 e validado
+
+`services/cotacoes.py` (um módulo, um greenlet) + `routes/acoes.py` + a faixa de
+cotações do painel. Validado com o servidor de pé, contra a brapi real, nos quatro ativos
+que ela libera sem token:
+
+| verificação | resultado real |
+|---|---|
+| batch de símbolos em uma chamada | `COTACOES_SIMBOLOS=PETR4,VALE3,MGLU3,ITUB4` → **1** requisição, `[provedor] chamada 1 -> PETR4,VALE3,MGLU3,ITUB4` |
+| um ciclo por processo, não por cliente | 3 TVs conectadas por socket.io + ~1.100 requisições HTTP em 75 s → **3** chamadas ao provedor no total; as três telas receberam a mesma faixa (`PETR4=57.93 VALE3=65.87 MGLU3=13.24 ITUB4=48.96`) |
+| cotação pintando na TV | captura headless 1920×1080: faixa "COTAÇÕES" com preço, variação colorida e hora da cotação, sem rolagem |
+| dado desatualizado marcado | com `COTACOES_VELHO_MIN=2`, às 15:18 a cotação de 15:15 virou `atual=false` → borda âmbar na tela, **preço preservado** (57.98), não zerado |
+| provedor sem resposta útil | `GGPS3` sem token → `401 MISSING_TOKEN`, **1 tentativa** (definitiva não é retentada), aviso no log com a mensagem do provedor, faixa com `—` e borda vermelha |
+| contrato antigo de `/actions/value/` | responde `0` com HTTP 200 quando não há cota (antes: `KeyError: 'results'` → 500); com cota, responde o número |
+| modo demo sem API externa | `MODO_DEMO=true` → `vista_cotacoes` não existe, `/actions/cotacoes/` devolve a faixa sintética (`provedor: "demo"`), nenhuma linha de log menciona a brapi |
+| token não vaza | mensagens de erro e avisos de log são verificados em teste: o token não aparece neles |
+
+O que **não** foi validado continua sendo o comportamento com token real (cobertura além
+dos quatro ativos de vitrine, cota efetiva). O código não depende disso: a única
+diferença com token é o cabeçalho `Authorization`, que já era enviado pelo
+`utils/actions.py` antigo e continua sendo enviado quando `ACTION_API` está definido.
+
 ## Persistência: decisão pendente, não implementada
 
 O brief pede "persistar as cotações válidas e atualizar os metadados no MongoDB **após
@@ -132,9 +182,9 @@ As opções, para escolha:
 
 ## O que ainda não foi validado
 
-- O comportamento da brapi **com** token (cota real, cadência real de atualização,
-  cobertura além dos 4 símbolos liberados). Só um token gratuito cadastrado permitiria
-  medir — e é exatamente a escolha que depende do item de persistência/configuração.
+- O comportamento da brapi **com** token: cota efetiva dos 15.000/mês e cobertura além dos
+  quatro símbolos de vitrine. A cadência já foi medida sem token (~3 min de atraso,
+  condizente com `s-maxage=300`); o que falta é saber se o token muda isso.
 - Se `GGPS3` volta a responder com token (a hipótese é que sim: o `401` é por token ausente,
   não por símbolo inexistente, já que `PETR4` na mesma chamada responde `200`).
-- Cadência de recuperação do `429` do Yahoo (medido: seguisse em `429` depois de ~10 min).
+- Cadência de recuperação do `429` do Yahoo (medido: seguia em `429` depois de ~10 min).
