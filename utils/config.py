@@ -55,6 +55,10 @@ class Settings:
     meta_percentual: float = 15.0
     atualizacao_segundos: int = 60
     demo: bool = False
+    action_api: str = ""
+    cotacoes_simbolos: str = "GGPS3"
+    cotacoes_segundos: int = 300
+    cotacoes_velho_min: int = 15
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -69,6 +73,10 @@ class Settings:
             meta_percentual=_flutuador("META_PERCENTUAL", 15.0),
             atualizacao_segundos=_inteiro("ATUALIZACAO_SEGUNDOS", 60),
             demo=_flag("MODO_DEMO"),
+            action_api=getenv("ACTION_API", "").strip(),
+            cotacoes_simbolos=getenv("COTACOES_SIMBOLOS", "GGPS3"),
+            cotacoes_segundos=_inteiro("COTACOES_SEGUNDOS", 300),
+            cotacoes_velho_min=_inteiro("COTACOES_VELHO_MIN", 15),
         )
 
     def validar(self) -> None:
@@ -87,6 +95,15 @@ class Settings:
             problemas.append("META_PERCENTUAL precisa ser um percentual maior ou igual a zero.")
         if self.atualizacao_segundos < 15:
             problemas.append("ATUALIZACAO_SEGUNDOS precisa ser de pelo menos 15 segundos.")
+        if len([s for s in self.cotacoes_simbolos.split(",") if s.strip()]) > 5:
+            problemas.append(
+                "COTACOES_SIMBOLOS aceita no máximo 5 ativos; o provedor cobra por requisição "
+                "e um a mais estoura o limite."
+            )
+        if self.cotacoes_segundos < 60:
+            problemas.append("COTACOES_SEGUNDOS precisa ser de pelo menos 60 segundos.")
+        if self.cotacoes_velho_min < 1:
+            problemas.append("COTACOES_VELHO_MIN precisa ser de pelo menos 1 minuto.")
         if problemas:
             raise RuntimeError("Configuração inválida:\n- " + "\n- ".join(problemas))
 
