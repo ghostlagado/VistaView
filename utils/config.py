@@ -54,6 +54,7 @@ class Settings:
     default_gr: str
     meta_percentual: float = 15.0
     atualizacao_segundos: int = 60
+    demo: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -67,12 +68,14 @@ class Settings:
             default_gr=getenv("DEFAULT_GR", "Parana Interior"),
             meta_percentual=_flutuador("META_PERCENTUAL", 15.0),
             atualizacao_segundos=_inteiro("ATUALIZACAO_SEGUNDOS", 60),
+            demo=_flag("MODO_DEMO"),
         )
 
     def validar(self) -> None:
         """Falha rápido e com mensagem acionável em vez de um RuntimeError de framework."""
         problemas = []
-        if not self.db_uri:
+        if not self.db_uri and not self.demo:
+            # Em demonstração nenhuma consulta chega ao banco, então a URI não é exigida.
             problemas.append("DB_URI ausente: configure a URI SQLAlchemy do dw_vista no .env.")
         if not self.secret:
             problemas.append("SECRET ausente: defina a chave de sessão do Flask no .env.")
