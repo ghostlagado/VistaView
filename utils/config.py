@@ -36,6 +36,13 @@ def _inteiro(nome: str, padrao: int) -> int:
         return padrao
 
 
+def _flutuador(nome: str, padrao: float) -> float:
+    try:
+        return float(getenv(nome, padrao))
+    except (TypeError, ValueError):
+        return padrao
+
+
 @dataclass(frozen=True)
 class Settings:
     host: str
@@ -45,6 +52,8 @@ class Settings:
     db_uri: str
     default_opt: str
     default_gr: str
+    meta_percentual: float = 15.0
+    atualizacao_segundos: int = 60
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -56,6 +65,8 @@ class Settings:
             db_uri=getenv("DB_URI", ""),
             default_opt=getenv("DEFAULT_OPT", "GR"),
             default_gr=getenv("DEFAULT_GR", "Parana Interior"),
+            meta_percentual=_flutuador("META_PERCENTUAL", 15.0),
+            atualizacao_segundos=_inteiro("ATUALIZACAO_SEGUNDOS", 60),
         )
 
     def validar(self) -> None:
@@ -69,6 +80,10 @@ class Settings:
             problemas.append(
                 f"DEFAULT_OPT={self.default_opt!r} inválida; use uma de {sorted(opts)}."
             )
+        if self.meta_percentual < 0:
+            problemas.append("META_PERCENTUAL precisa ser um percentual maior ou igual a zero.")
+        if self.atualizacao_segundos < 15:
+            problemas.append("ATUALIZACAO_SEGUNDOS precisa ser de pelo menos 15 segundos.")
         if problemas:
             raise RuntimeError("Configuração inválida:\n- " + "\n- ".join(problemas))
 
