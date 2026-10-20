@@ -273,3 +273,43 @@ disso — cinco ativos cabem em 720p, um ativo não deixa buraco na tela.
 - Renderizações com cotação em 1280×720, 1366×768, 1920×1080 e 2560×1440, com 4 ativos
   reais e com 5 indisponíveis: nenhuma rolagem, nenhum corte, rodapé de unidades visível.
 - Modo demo revalidado com a faixa sintética ao lado do selo DEMO.
+
+## Fase 9 — documentação e entrega
+
+### O que é fonte de verdade em cada documento
+
+| Arquivo | Responde a |
+| --- | --- |
+| `README.md` | o que o painel é hoje, como configurar e como rodar |
+| `docs/auditoria-e-baseline.md` | o que o código era antes, o que estava quebrado, o que virou o quê |
+| `docs/decisoes-tecnicas.md` | por que cada alternativa foi escolhida e o que foi rejeitado |
+| `docs/modo-demo.md` | demonstração, isolamento e auditoria do Showcase |
+| `docs/cotacoes.md` | comparação de provedores com números medidos e a decisão de persistência |
+
+O README antigo descrevia `app.config["SQLALCHEMY_DATABASE_URI"] = getenv("DB_URI")` e uma
+estrutura sem `services/`, `tests/` nem `docs/`. Isso não era mais verdade e foi reescrito na
+fonte, não corrigido com nota de rodapé.
+
+### O que ficou aberto de propósito
+
+Quatro coisas não foram feitas porque cada uma cruza a linha do que é decisão reversível:
+
+- **Persistir cotações.** O brief pedia MongoDB "após verificar a compatibilidade com a
+  infraestrutura existente". Não há MongoDB no projeto; as três saídas (só memória, Mongo novo,
+  tabela em `dw_vista`) estão comparadas em `docs/cotacoes.md`. Criar serviço externo ou mexer no
+  schema compartilhado custa dinheiro/alheio e é irreversível na prática.
+- **Restringir o CORS.** `allow_headers=["*"]` continua como estava: limitar origem é mudança de
+  contrato para qualquer consumidor que já aponte para a aplicação.
+- **Implementar o Yahoo como segundo provedor.** Estabilidade medida: `429 "Edge: Too Many
+  Requests"` persistiu por mais de dez minutos, com e sem user-agent. Um fallback que não se
+  consegue validar é código morto com aparência de resiliência — registrado como opção em
+  `docs/cotacoes.md`, não escrito.
+- **Apagar o que ficou órfão.** `templates/index.html` (com `static/style/index.css`),
+  `templates/Example.html` servida em `/showcase`, `svgs/gorro.svg` e os `static/js/base.js` e
+  `static/js/chart.js` que a suíte ainda usa como fonte de contrato de rota permanecem no
+  repositório. Nada no código novo depende deles para funcionar, mas uso não verificado não se
+  remove por conta própria. O repositório `VistaView_Showcase` passou pela mesma regra: auditado
+  na Fase 5, sem regra de negócio exclusiva, e não excluído.
+
+E uma que é procedimento, não decisão técnica: **nada foi publicado**. Estes repositórios fazem
+deploy no push, então o que está aqui é validado localmente e espera confirmação para subir.
