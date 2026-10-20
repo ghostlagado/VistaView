@@ -176,3 +176,65 @@ mostrado antes (`/actions/value/`, GGPS3). Ela é alimentada de verdade pela Fas
   página bateram com as do servidor (1.506 / 137 / −19 / −79).
 - Estado degradado confirmado com o banco fora do ar: cartões mudam para "sem dados no
   momento" e o cabeçalho marca "dados desatualizados (n)" — sem inventar meta zerada.
+
+## Fase 7 — cotações
+
+### Um greenlet para todas as TVs
+
+`services/cotacoes.py` é o único código do projeto que faz requisição HTTP de cotação. A
+medição da própria brapi decidiu o desenho: `x-brapi-concurrency-limit: 1` — duas TVs
+consultando ao mesmo tempo já é uma delas recusada. O painel, o ciclo de tempo real e as
+rotas HTTP leem `AtualizadorCotacoes.cotacoes()`, que é uma função de cache. Validado com
+três clientes socket.io conectados e ~1.100 requisições HTTP em 75 segundos: três chamadas
+ao provedor no total (uma por ciclo), mesma faixa para as três telas.
+
+### A faixa entra no painel, não em evento novo
+
+`app.config["VISTA_COTACOES"]` é a mesma costura de `VISTA_FONTE`: `create_app` decide se
+as cotações vêm do cache do provedor ou do modo demo, e `calcular_painel` junta as duas
+coisas no snapshot. Como as cotações são uma chave a mais do snapshot, elas viajam pelo
+canal `dashboard:update` que já existia e o `painel.js` já sabia desenhar. Não foi
+preciso criar evento, listener nem protocolo novo. O caminho HTTP de fallback ganhou
+`/actions/cotacoes/`, que devolve a mesma lista.
+
+### Falha definitiva não é retentada
+
+401/403/404 viram `FalhaDefinitiva` e encerram o ciclo na primeira tentativa: retentar um
+token ausente gasta a cota mensal e atrasa o aviso. Timeout e 5xx são transitórios e têm
+até três tentativas com backoff (2 s, 8 s). 429 carrega o `Retry-After` do provedor, que
+passa a valer como espera do próximo ciclo — o limite do provedor é respeitado, não
+ignorado. Entre ciclos com falha a espera dobra até o teto de 30 minutos.
+
+### A idade do número faz parte do dado
+
+Nenhuma fonte gratuita é comprovadamente em tempo real (a brapi atrasa ~3 minutos; a
+documentação dela diz 30). Então a tela mostra a hora da cotação e marca em âmbar quando
+ela passa de `COTACOES_VELHO_MIN`; quando não há cota nenhuma, mostra `—` com borda
+vermelha, nunca `0`. Em falha, o último preço válido continua na tela.
+
+### O que a Fase 7 não fez
+
+- Persistência fora do processo: o MongoDB pedido no brief não existe na infraestrutura
+  (verificação em `docs/cotacoes.md`), e criar tabela no `dw_vista` compartilhado é mudança
+  de schema que exige aprovação. Nada foi escrito em banco.
+- Provedor internacional (Yahoo) não foi implementado: medido nesta sessão, ele respondeu
+  `429` sustentado, e escrever um cliente que não se consegue validar seria código morto.
+  A cobertura internacional entra hoje pelos BDRs da B3 (`AAPL34`, `MSFT34`), que são o
+  mesmo endpoint.
+- `utils/actions.py` foi removido: era o chamador antigo, sem timeout e sem checagem de
+  status, e o único import dele (`routes/acoes.py`) foi reescrito sobre o cache.
+
+### Validação real executada
+
+- 146 testes (eram 101), com 43 novos em `tests/test_cotacoes.py` usando uma sessão HTTP
+  falsa — nenhuma requisição de teste sai para a internet.
+- Servidor real contra a brapi, nos quatro ativos liberados sem token: faixa pintada em
+  1920×1080 com `PETR4 57.93 -0.12% 15:12`, `VALE3`, `MGLU3 +11.92%`, `ITUB4 +2.21%`.
+- Estado desatualizado forçado com `COTACOES_VELHO_MIN=2`: cotação de 15:15 lida às 15:18
+  ficou âmbar com o preço preservado.
+- Estado indisponível forçado com `COTACOES_SIMBOLOS=GGPS3` sem token: `401`, uma tentativa,
+  aviso no log com a mensagem do provedor, faixa com `—`.
+- `/actions/value/` (contrato antigo) verificado ao vivo: `0` com HTTP 200 sem cota — antes
+  desta fase a mesma rota devolvia 500.
+- Modo demo verificado ao vivo: sem `vista_cotacoes`, sem nenhuma menção à brapi no log,
+  faixa sintética com `provedor: "demo"`.
