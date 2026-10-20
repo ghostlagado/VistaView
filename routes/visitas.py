@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 
-from services import metricas
+from services.fonte import indicadores
 
 visitas_bp = Blueprint("Visitas de Supervisores", __name__)
 
@@ -9,17 +9,19 @@ visitas_bp = Blueprint("Visitas de Supervisores", __name__)
 # ============================================================
 @visitas_bp.route('/mes/<opt>/<gr>')
 def visitasMes(opt, gr):
-    campo = metricas.coluna_de_filtro(opt)
+    fonte = indicadores()
+    campo = fonte.coluna_de_filtro(opt)
     if not campo:
         return jsonify({'error': 'Opção inválida'}), 400
-    return jsonify(metricas.visitas_mes(campo, gr)), 200
+    return jsonify(fonte.visitas_mes(campo, gr)), 200
 
 # ============================================================
 # VISITAS DO DIA
 # ============================================================
 @visitas_bp.route('/dia/<opt>/<gr>')
 def visitasDia(opt, gr):
-    campo = metricas.coluna_de_filtro(opt)
+    fonte = indicadores()
+    campo = fonte.coluna_de_filtro(opt)
     if not campo:
         return jsonify({'error': 'Opção inválida'}), 400
-    return jsonify(metricas.visitas_dia(campo, gr)), 200
+    return jsonify(fonte.visitas_dia(campo, gr)), 200
