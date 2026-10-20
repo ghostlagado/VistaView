@@ -8,6 +8,7 @@ O SQL é o original da auditoria, preservado literalmente — inclusive os hints
 que variavam de rota para rota.
 """
 
+import sys
 from calendar import monthrange
 from datetime import datetime as dt
 
@@ -338,13 +339,14 @@ def graph_days_ant(campo, gr, agora=None):
 # ======================================================================
 # AGREGADO DO PAINEL
 # ======================================================================
-def painel(opt, gr, agora=None, meta_percentual=None):
-    """Todas as cifras do dashboard em uma única agregação.
+def montar_painel(fonte, opt, gr, agora=None, meta_percentual=None):
+    """Agrega as cifras do painel a partir de uma `fonte` de indicadores.
 
-    A regra de meta (mês anterior + percentual) e o gap viviam apenas em
-    `static/js/base.js`. Estão aqui para que HTTP, Socket.IO e o modo demo calculem igual.
+    A fonte é qualquer objeto com as mesmas funções deste módulo — o warehouse real ou
+    o gerador de demonstração. A regra de meta mora aqui, uma vez só, para que HTTP,
+    Socket.IO e o modo demo cheguem no mesmo número.
     """
-    campo = coluna_de_filtro(opt)
+    campo = fonte.coluna_de_filtro(opt)
     if not campo:
         raise ValueError(f"recorte inválido: {opt!r}")
 
@@ -355,9 +357,9 @@ def painel(opt, gr, agora=None, meta_percentual=None):
     def inteiro(valor):
         return int(valor or 0)
 
-    total_mes = inteiro(tarefas_total(campo, gr, agora))
-    total_dia = inteiro(tarefas_dia(campo, gr, agora))
-    mes_anterior = inteiro(tarefas_mes_anterior(campo, gr, agora))
+    total_mes = inteiro(fonte.tarefas_total(campo, gr, agora))
+    total_dia = inteiro(fonte.tarefas_dia(campo, gr, agora))
+    mes_anterior = inteiro(fonte.tarefas_mes_anterior(campo, gr, agora))
 
     meta_mes = round(mes_anterior * (1 + meta_percentual / 100))
     dias_no_mes = monthrange(agora.year, agora.month)[1]
@@ -368,19 +370,24 @@ def painel(opt, gr, agora=None, meta_percentual=None):
         "recorte": {"opt": opt, "gr": gr},
         "totalMes": total_mes,
         "totalDia": total_dia,
-        "visitasMes": inteiro(visitas_mes(campo, gr, agora)),
-        "visitasDia": inteiro(visitas_dia(campo, gr, agora)),
-        "escalonadas": inteiro(escalonadas(campo, gr)),
+        "visitasMes": inteiro(fonte.visitas_mes(campo, gr, agora)),
+        "visitasDia": inteiro(fonte.visitas_dia(campo, gr, agora)),
+        "escalonadas": inteiro(fonte.escalonadas(campo, gr)),
         "mesAnterior": mes_anterior,
         "metaMes": meta_mes,
         "metaDia": meta_dia,
         "gapMes": total_mes - meta_mes,
         "gapDia": total_dia - meta_dia,
-        "performance": performance(campo, gr, agora),
-        "top3Uni": top3_unidades(campo, gr, agora),
-        "top3Sup": top3_sups(campo, gr, agora),
-        "gerentes": gerentes(campo, gr, agora),
-        "unidades": unidades(campo, gr, agora),
-        "dias": graph_days(campo, gr, agora),
-        "diasAnt": graph_days_ant(campo, gr, agora),
+        "performance": fonte.performance(campo, gr, agora),
+        "top3Uni": fonte.top3_unidades(campo, gr, agora),
+        "top3Sup": fonte.top3_sups(campo, gr, agora),
+        "gerentes": fonte.gerentes(campo, gr, agora),
+        "unidades": fonte.unidades(campo, gr, agora),
+        "dias": fonte.graph_days(campo, gr, agora),
+        "diasAnt": fonte.graph_days_ant(campo, gr, agora),
     }
+
+
+def painel(opt, gr, agora=None, meta_percentual=None):
+    """Painel lido do warehouse."""
+    return montar_painel(sys.modules[__name__], opt, gr, agora, meta_percentual)
