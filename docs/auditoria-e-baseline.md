@@ -93,28 +93,65 @@ não há migrações e `db.create_all()` é no-op.
 12. **`metaDiaria = metaAtual/(30-dia)`**: divisor fixo em 30 (errado em fevereiro e meses de 31)
     e divisão por zero no último dia do mês. → usa o número real de dias do mês e nunca divide por zero.
 
-### Em aberto (tratados nas fases 2 a 8)
+### Itens 13 a 21 — o que aconteceu com cada um
+
+Status registrados na Fase 9, um por item da auditoria. "Resolvido" significa validado com
+teste ou execução real, não apenas escrito.
 
 13. **`DB_URI` ausente derruba o processo no import** (`RuntimeError` do Flask-SQLAlchemy).
     Configuração precisa ser validada e o modo demo precisa funcionar sem o banco.
+    → **Resolvido na fase 2.** `utils/config.py:Settings.validar()` falha na subida com a
+    lista do que falta (`DB_URI` fora do demo, `SECRET` sempre, `DEFAULT_OPT` fora da
+    whitelist, percentuais e ciclos fora de faixa), e `MODO_DEMO=true` dispensa o banco.
+    Coberto por `tests/test_config.py` (inclusive `test_create_app_recusa_configuracao_incompleta`).
 14. **`utils/actions.py` sem timeout, sem checagem de status e sem tratamento de erro.** Uma
     resposta inesperada do provedor produz `KeyError: 'results'` e HTTP 500 (reproduzido na
     auditoria). Sem cache: cada navegador conectado consulta o provedor individualmente.
+    → **Resolvido na fase 7.** O módulo foi removido e substituído por `services/cotacoes.py`:
+    timeout de conexão/leitura, checagem de status, erro definitivo ≠ transitório, três
+    tentativas com backoff, respeito ao `Retry-After`, cache em memória lido por todas as TVs
+    e uma única fila de atualização. `/actions/value/` mantém o contrato de número e passou a
+    responder `0` com HTTP 200 em vez de 500. Validação real: 3 clientes Socket.IO + ~1.100
+    requisições HTTP em 75s resultaram em 3 chamadas ao provedor.
 15. **Cotação única e fixa (`GGPS3`)**, sem símbolos configuráveis e sem persistência.
+    → **Resolvido na parte de símbolos (fase 7).** `COTACOES_SIMBOLOS` aceita até 5 ativos e
+    todos viram uma requisição só; mais que isso a configuração é rejeitada antes de subir.
+    Persistência continua aberta — ver 16.
 16. **Sem persistência de cotações** e **sem MongoDB na infraestrutura atual** (só SQL Server).
     A decisão sobre onde persistir está registrada em `docs/cotacoes.md` (Fase 6/7).
+    → **Aberto, é decisão e não implementação.** Não há MongoDB no requirements, no repositório
+    nem no docker; o brief pedia Mongo "após verificar a compatibilidade com a infraestrutura
+    existente". As três opções (só memória, Mongo novo, tabela em `dw_vista`) e os riscos de
+    cada uma estão descritos em `docs/cotacoes.md`. Mudar o schema compartilhado ou criar
+    serviço externo exige aprovação, então nada foi implementado por conta própria.
 17. **SocketIO declarado mas nunca usado** — nenhum evento, nenhum handler, nenhuma reconexão.
     A "atualização em tempo real" hoje é um `<meta http-equiv="refresh" content="600">`, que
     recarrega a página inteira a cada 10 minutos.
+    → **Resolvido na fase 4.** `services/realtime.py` roda o ciclo de painel, emite
+    `dashboard:snapshot` / `dashboard:update` (só o que mudou) / `dashboard:status` e trata
+    `dashboard:solicitar`; o meta refresh foi removido de `templates/dash.html` (confirmado por
+    busca no arquivo). Reconexão validada com o servidor sendo morto e subido de novo.
 18. **`templates/index.html` é órfã** (nenhuma rota a renderiza) e referencia arquivos inexistentes
     (`/static/Gpslogo.png`, `/static/favicon.png`); carrega `base.js`, que falharia nela. Não foi
     removida: uso não verificado.
+    → **Mantida, intencionalmente.** Remover arquivo sem uso verificado está na lista de ações que
+    pedem aprovação. Nada no código novo a importa.
 19. **`Example.html` não carrega JavaScript nenhum** — os dois `<canvas>` nunca recebem um
     `Chart`. O repositório Showcase tem a versão funcional (`chart_ex.js` ligada na página).
+    → **Contornado, não consertado.** A demonstração real passou a ser o modo demo do painel
+    (`MODO_DEMO=true`), com o mesmo contrato de rota e os mesmos eventos; `/showcase` continua
+    servindo a página estática como referência visual histórica, com os gráficos parados de
+    antes. Se a referência antiga ainda for usada por alguém, ela segue disponível.
 20. **`static/style/index.css`** é usado apenas pela página órfã.
+    → **Mantido junto com o item 18.** Mesmo motivo.
 21. **Segurança**: CORS liberado (`allow_headers=["*"]`) e `SECRET` sem valor padrão. Não há
     segredo em versionamento e o `.gitignore` cobre `.env`. A interpolação de `{campo}` no SQL é
     segura porque `campo` só vem da whitelist `opts` — há teste cobrindo isso.
+    → **Parcialmente resolvido.** `SECRET` agora é obrigatória e validada na subida (fase 2); o
+    token do provedor (`ACTION_API`) só existe no processo do servidor e há teste afirmando que
+    não aparece em resposta HTTP nem em mensagem de erro; o `.gitignore` cobre `.env` (também
+    testado). O CORS liberado **não** foi alterado: restringir a origem é mudança de contrato
+    externo que pode quebrar consumidores existentes e precisa de aprovação.
 
 ## 4. Comparação com `VistaView_Showcase`
 
@@ -163,3 +200,15 @@ Cada fase abaixo precisa manter estas verdades:
 4. O modo demo não toca no banco real e é visualmente identificável.
 5. Nenhum cliente conectado gera uma chamada ao provedor de cotações por conta própria.
 6. `tests/` passa em conjunto com os testes novos de cada fase.
+
+### Como cada critério é verificado hoje
+
+| Critério | Teste que o trava |
+| --- | --- |
+| 1 — rotas e formas inalteradas | `test_regressao.py::o_mapa_de_rotas_e_o_da_baseline_mais_a_rota_de_cotacoes` (comparação com o conjunto congelado na auditoria), `as_rotas_de_indicador_aceitam_so_get`, `test_contracts.py::toda_chamada_fetch_existe_no_back_end` |
+| 2 — filtros de negócio | `test_regressao.py::os_filtros_de_negocio_continuam_no_sql` (5 casos, parâmetros de bind conferidos), `a_whitelist_de_recorte_persiste`, `fora_da_whitelist_nao_vira_sql` |
+| 3 — tela resiste a falha | `a_pagina_sai_mesmo_com_tudo_fora_do_ar`, `o_ciclo_nao_quebra_com_indicadores_fora_do_ar`, `o_provedor_fora_do_ar_nao_derruba_o_snapshot` |
+| 4 — demo isolado | `test_demo.py::as_rotas_de_demo_nao_tocam_o_banco`, `o_painel_marca_demo_no_cabecalho`, `o_ciclo_real_nao_se_confunde_com_demo`, `showcase_nao_importa_nada_de_dados_reais` |
+| 5 — uma fila de cotações | `test_regressao.py::nenhuma_requisicao_http_chama_o_provedor`, `test_cotacoes.py` (verde único, cache lido por todos) |
+| 6 — suíte verde junto | `python -m pytest -q` → **169 passed** (30 na baseline da Fase 1; as fases 5 a 8 somaram demo, cotações e regressão) |
+
