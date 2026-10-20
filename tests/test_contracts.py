@@ -12,6 +12,28 @@ import pytest
 JS_FILES = ["static/js/base.js", "static/js/chart.js"]
 FETCH_RE = re.compile(r"fetch\(\s*[`'\"]([^`'\"]+)[`'\"]")
 
+# `painel.js` monta a URL a partir de um mapa, então o contrato é o próprio mapa.
+PAINEL_JS = "static/js/painel.js"
+ROTAS_BLOCO_RE = re.compile(r"const ROTAS = \{(.*?)^\s*\}", re.S | re.M)
+ROTAS_ITEM_RE = re.compile(r"[`'\"](/[^`'\"]+)[`'\"]")
+
+# Meta e gap saem do servidor no snapshot, mas no caminho HTTP são calculados na página.
+DERIVADOS_NO_NAVEGADOR = {"metaMes", "metaDia", "gapMes", "gapDia"}
+# `atualizadoEm` vem do servidor no snapshot; na consulta HTTP a página usa a hora local.
+SÓ_NO_SNAPSHOT = {"atualizadoEm"}
+# `recorte` é metadado do filtro, não é desenhado.
+SÓ_NO_SNAPSHOT.add("recorte")
+
+
+def painel_source(app_root):
+    return (app_root / PAINEL_JS).read_text(encoding="utf-8")
+
+
+def rotas_http(source):
+    bloco = ROTAS_BLOCO_RE.search(source)
+    assert bloco, f"{PAINEL_JS} perdeu o mapa ROTAS; o contrato deixaria de ser coberto."
+    return {chave for chave, _ in re.findall(r"(\w+):\s*[`'\"](/[^`'\"]+)[`'\"]", bloco.group(1))}
+
 
 def frontend_paths(app_root):
     paths = set()
@@ -19,6 +41,9 @@ def frontend_paths(app_root):
         source = (app_root / rel).read_text(encoding="utf-8")
         for raw in FETCH_RE.findall(source):
             paths.add(re.sub(r"\$\{[^}]+\}", "PLACEHOLDER", raw))
+
+    for rota in ROTAS_ITEM_RE.findall(ROTAS_BLOCO_RE.search(painel_source(app_root)).group(1)):
+        paths.add(rota + "PLACEHOLDER/PLACEHOLDER")
     return paths
 
 
@@ -38,12 +63,35 @@ def test_toda_chamada_fetch_existe_no_back_end(app, app_root):
     assert not missing, f"fetch() do front-end sem rota no back-end: {missing}"
 
 
-def test_pagina_principal_renderiza_com_regional(app, client):
+def test_os_dois_caminhos_de_pintura_tem_o_mesmo_payload(app, app_root, capture_sql):
+    """Socket.IO entrega `metricas.painel()`; sem socket a página remonta o mesmo objeto.
+
+    Se um campo nascer só de um lado, a TV mostra números diferentes conforme a conexão.
+    """
+    from services import metricas
+
+    with app.app_context():
+        campos_do_snapshot = set(metricas.painel("GR", "Parana Interior"))
+    cobertos_pelo_http = rotas_http(painel_source(app_root)) | DERIVADOS_NO_NAVEGADOR
+
+    assert campos_do_snapshot - cobertos_pelo_http == SÓ_NO_SNAPSHOT
+    assert cobertos_pelo_http - campos_do_snapshot == set()
+
+
+def test_pagina_principal_renderiza_com_recorte(app, client):
     resp = client.get("/")
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
-    assert "sessionStorage.setItem('GR'" in html
-    assert "sessionStorage.setItem('OPT'" in html
+    assert f'data-gr="{app.config["DEFAULT_GR"]}"' in html
+    assert f'data-opt="{app.config["DEFAULT_OPT"]}"' in html
+    assert f'data-meta="{app.config["META_PERCENTUAL"]}"' in html
+
+
+def test_pagina_principal_carrega_tempo_real_sem_recarregar_a_pagina(app, client):
+    html = client.get("/").get_data(as_text=True)
+    assert "http-equiv" not in html, "meta refresh convivendo com Socket.IO: a TV piscaria."
+    assert "/static/js/tempo-real.js" in html
+    assert "/static/js/painel.js" in html
 
 
 def test_pagina_de_demonstracao_renderiza(app, client):

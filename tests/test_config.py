@@ -51,8 +51,9 @@ def test_configuracao_valida_passa_silenciosa():
 def test_create_app_expoe_o_recorte_padrao_para_o_template():
     with create_app(_settings()).test_client() as c:
         html = c.get("/").get_data(as_text=True)
-    assert "Parana Interior" in html
-    assert "sessionStorage.setItem('OPT', 'GR')" in html
+    assert 'data-gr="Parana Interior"' in html
+    assert 'data-opt="GR"' in html
+    assert 'data-meta="15.0"' in html
 
 
 def test_create_app_recusa_configuracao_incompleta():
