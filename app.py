@@ -24,6 +24,7 @@ def create_app(settings=SETTINGS):
     app.config["SQLALCHEMY_DATABASE_URI"] = settings.db_uri
     app.config["DEFAULT_GR"] = settings.default_gr
     app.config["DEFAULT_OPT"] = settings.default_opt
+    app.config["META_PERCENTUAL"] = settings.meta_percentual
 
     for bp, url_prefix in bps.items():
         app.register_blueprint(bp, url_prefix=url_prefix)
@@ -52,6 +53,7 @@ def create_app(settings=SETTINGS):
             'dash.html',
             gr=app.config["DEFAULT_GR"],
             opt=app.config["DEFAULT_OPT"],
+            meta_percentual=app.config["META_PERCENTUAL"],
         )
 
     @app.route('/showcase')
