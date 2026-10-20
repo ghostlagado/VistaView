@@ -219,8 +219,12 @@ def graphdiasant(opt, gr):
 
     agora = dt.now()
 
-    # Mantendo a lógica original
+    # Mês anterior com correção de ano: em janeiro a referência é dezembro do ano anterior.
     mes_anterior = agora.month - 1
+    ano_referencia = agora.year
+    if mes_anterior == 0:
+        mes_anterior = 12
+        ano_referencia = agora.year - 1
     dia_atual = agora.day
 
     sql = text(f"""
@@ -247,7 +251,7 @@ def graphdiasant(opt, gr):
             'gr': gr,
             'day': dia_atual,
             'month': mes_anterior,
-            'year': agora.year,
+            'year': ano_referencia,
         }
     )
 

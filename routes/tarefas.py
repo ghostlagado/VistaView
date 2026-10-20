@@ -78,9 +78,12 @@ def tarefasMesAnt(opt, gr):
 
     agora = dt.now()
 
-    # Mantendo a mesma regra do código original:
-    # mês atual - 1
+    # Mês anterior com correção de ano: em janeiro o mês anterior é dezembro do ano anterior.
     mes_anterior = agora.month - 1
+    ano_referencia = agora.year
+    if mes_anterior == 0:
+        mes_anterior = 12
+        ano_referencia = agora.year - 1
 
     sql = text(f"""
         SELECT TOP 1 COUNT(T.NOME) AS TOTAL
@@ -101,7 +104,7 @@ def tarefasMesAnt(opt, gr):
         {
             'gr': gr,
             'month': mes_anterior,
-            'year': agora.year,
+            'year': ano_referencia,
         }
     ).scalar()
 
