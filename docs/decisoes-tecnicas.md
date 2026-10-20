@@ -238,3 +238,38 @@ vermelha, nunca `0`. Em falha, o último preço válido continua na tela.
   desta fase a mesma rota devolvia 500.
 - Modo demo verificado ao vivo: sem `vista_cotacoes`, sem nenhuma menção à brapi no log,
   faixa sintética com `provedor: "demo"`.
+
+## Fase 8 — regressão
+
+### O mapa de rotas congelado
+
+`tests/test_regressao.py` compara o `url_map` com o conjunto exato de paths da baseline da
+Fase 1, mais a única rota nova (`/actions/cotacoes/`). Um path renomeado não quebra só o
+painel: quebra qualquer integração externa que já consuma o JSON, e isso não aparece em
+nenhum outro teste.
+
+### Um app por teste quando o teste muda estado
+
+O `app` da suíte é a aplicação real de módulo, e o atualizador guarda estado
+(`degradado`, `_ultimo`, contagem de falhas). O teste do ciclo com o banco fora do ar
+passou a criar o próprio `create_app`, porque senão ele deixava a aplicação compartilhada
+marcada como degradada e o teste de tempo real seguinte falhava — ordem de teste virando
+bug de produto.
+
+### A faixa de cotações na grade 16:9
+
+`auto` na terceira linha da coluna esquerda é o tamanho do conteúdo: com cinco ativos a
+faixa passava do fundo da tela a 1280×720 e o cartão saía cortado. A linha agora tem
+fração própria (`minmax(0, .95fr)`) e cada cotação cresce até `5.5vmin` e encolhe depois
+disso — cinco ativos cabem em 720p, um ativo não deixa buraco na tela.
+
+### Validação real executada
+
+- 169 testes (eram 146), incluindo 23 novos de anti-regressão mapeados um a um nos seis
+  critérios de aceitação da auditoria.
+- Reconexão ao vivo: cliente socket.io conectado, servidor derrubado e reerguido → o mesmo
+  cliente reconectou sozinho (`connected: True`) e voltou a receber deltas, sem recarregar
+  a página.
+- Renderizações com cotação em 1280×720, 1366×768, 1920×1080 e 2560×1440, com 4 ativos
+  reais e com 5 indisponíveis: nenhuma rolagem, nenhum corte, rodapé de unidades visível.
+- Modo demo revalidado com a faixa sintética ao lado do selo DEMO.
