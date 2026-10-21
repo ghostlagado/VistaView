@@ -6,6 +6,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 # app.py exige DB_URI no momento do import; definir antes de importar.
 os.environ.setdefault("DB_URI", "sqlite:///:memory:")
 os.environ.setdefault("SECRET", "test-secret")
+# O `.env` de quem está rodando não pode escolher o modo da suíte: o `app` compartilhado
+# precisa nascer no caminho real, e o demo entra só onde o teste pede um app dele.
+os.environ["MODO_DEMO"] = "false"
 
 import pytest  # noqa: E402
 
