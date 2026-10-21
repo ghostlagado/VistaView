@@ -15,6 +15,12 @@
     --ambar: #f0a92c;
     --azul: #3d9be9;
     --marca: #00a6a0;
+
+    /* Escala única de folga. Toda separação entre cards, seções e itens sai daqui,
+     * então o respiro do painel se ajusta num lugar só. */
+    --folga: 1.15vmin;
+    --folga-fina: .85vmin;
+    --respiro: 1.3vmin;
 }
 
 html, body {
@@ -25,16 +31,16 @@ html, body {
     background: var(--fundo);
     color: var(--texto);
     font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    font-size: clamp(12px, 1.05vw, 30px);
-    line-height: 1.25;
+    font-size: clamp(11px, .98vw, 27px);
+    line-height: 1.3;
 }
 
 .painel {
     display: grid;
     grid-template-rows: auto 1fr auto;
     height: 100vh;
-    gap: .7vmin;
-    padding: .7vmin;
+    gap: var(--folga);
+    padding: var(--folga);
 }
 
 /* ---------------------------------------------------------- cabeçalho */
@@ -42,32 +48,27 @@ html, body {
     display: grid;
     grid-template-columns: auto 1fr auto auto;
     align-items: center;
-    gap: 1.2vw;
+    gap: 2vw;
     background: var(--superficie);
     border: 1px solid var(--borda);
-    border-radius: .6vmin;
-    padding: .8vmin 1.4vmin;
+    border-radius: .7vmin;
+    padding: 1.1vmin 1.8vmin;
 }
 
 .cabecalho__marca {
     display: flex;
     align-items: center;
-    gap: .9vw;
 }
 
+/* O letreiro da marca é o identificador: não se repete em texto ao lado. */
 .cabecalho__logo {
-    height: 3.6vmin;
+    height: 5vmin;
     width: auto;
 }
 
-.cabecalho__titulo {
-    font-size: 1.5em;
-    font-weight: 700;
-    letter-spacing: .02em;
-}
-
 .cabecalho__regional {
-    font-size: 1.05em;
+    font-size: .95em;
+    letter-spacing: .1em;
     color: var(--texto-suave);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -85,41 +86,41 @@ html, body {
 }
 
 .cabecalho__data {
-    font-size: .72em;
+    font-size: .68em;
     color: var(--texto-suave);
     text-transform: capitalize;
 }
 
 .relogio {
     font-variant-numeric: tabular-nums;
-    font-size: 1.4em;
+    font-size: 1.25em;
     font-weight: 700;
-}
-
-.selos {
-    display: flex;
-    align-items: center;
-    gap: .5vw;
+    letter-spacing: .02em;
 }
 
 .selo {
     display: inline-flex;
     align-items: center;
-    gap: .4em;
-    padding: .35em .8em;
+    gap: .5em;
+    padding: .4em 1em;
     border-radius: 999px;
-    font-size: .8em;
+    font-size: .78em;
     font-weight: 700;
+    letter-spacing: .06em;
     white-space: nowrap;
     border: 1px solid var(--borda);
     background: var(--superficie-2);
     color: var(--texto-suave);
 }
 
-.selo--ok { color: var(--verde); border-color: var(--verde); }
+.selo--neutro { color: var(--texto-suave); }
+.selo--on { color: var(--verde); border-color: var(--verde); }
+.selo--off { color: var(--vermelho); border-color: var(--vermelho); }
 .selo--alerta { color: var(--ambar); border-color: var(--ambar); }
-.selo--erro { color: var(--vermelho); border-color: var(--vermelho); }
-.selo--demo { color: #0b1015; background: var(--ambar); border-color: var(--ambar); }
+
+/* Uma só tag na barra: quando o socket está pegando mas o ciclo do servidor não
+ * entrega cifra nova, o mesmo selo fica âmbar — sem texto extra, sem segunda tag. */
+.selo--on.selo--degradado { color: var(--ambar); border-color: var(--ambar); }
 
 .selo__ponto {
     width: .55em;
@@ -128,18 +129,25 @@ html, body {
     background: currentColor;
 }
 
+.selo--on .selo__ponto { animation: pulsar 2.4s ease-in-out infinite; }
+
+@keyframes pulsar {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .35; }
+}
+
 /* ---------------------------------------------------------- corpo */
 .corpo {
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 3fr) minmax(0, 1.5fr);
-    gap: .7vmin;
+    gap: var(--folga);
     min-height: 0;
 }
 
 .coluna {
     display: grid;
     grid-template-rows: 1fr 1fr;
-    gap: .7vmin;
+    gap: var(--folga);
     min-height: 0;
 }
 
@@ -150,14 +158,10 @@ html, body {
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .95fr);
 }
 
-.coluna--direita {
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1.35fr);
-}
-
 .coluna--centro {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: .7vmin;
+    gap: var(--folga);
     min-height: 0;
 }
 
@@ -169,7 +173,7 @@ html, body {
 .cartao {
     background: var(--superficie);
     border: 1px solid var(--borda);
-    border-radius: .6vmin;
+    border-radius: .7vmin;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -180,17 +184,18 @@ html, body {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding: .7vmin 1vmin;
+    gap: 1em;
+    padding: .95vmin 1.5vmin;
     border-bottom: 1px solid var(--borda);
-    font-size: .85em;
+    font-size: .76em;
     font-weight: 700;
-    letter-spacing: .08em;
+    letter-spacing: .1em;
     color: var(--texto-suave);
     text-transform: uppercase;
 }
 
 .cartao__corpo {
-    padding: .7vmin 1vmin;
+    padding: var(--respiro) 1.5vmin;
     overflow: hidden;
     min-height: 0;
     display: flex;
@@ -206,21 +211,21 @@ html, body {
     flex: 1;
     flex-direction: column;
     justify-content: space-between;
-    gap: .5vmin;
+    gap: var(--folga-fina);
 }
 
 .lista__item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: .8em;
+    gap: 1em;
     flex: 0 1 auto;
     min-height: 0;
     overflow: hidden;
     background: var(--superficie-2);
-    border-radius: .4vmin;
-    padding: .9vmin 1vmin;
-    font-size: 1.05em;
+    border-radius: .5vmin;
+    padding: 1.15vmin 1.4vmin;
+    font-size: .95em;
 }
 
 .lista__nome {
@@ -245,14 +250,14 @@ html, body {
 .lista__vazio {
     font-style: italic;
     color: var(--texto-suave);
-    padding: .4vmin 0;
+    padding: .6vmin 0;
 }
 
 /* ---------------------------------------------------------- KPIs */
 .kpis {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .7vmin;
+    gap: var(--folga);
 }
 
 .kpis--metas {
@@ -263,17 +268,17 @@ html, body {
     background: var(--superficie);
     border: 1px solid var(--borda);
     border-left: .5vmin solid var(--borda);
-    border-radius: .5vmin;
-    padding: .8vmin 1vmin;
+    border-radius: .6vmin;
+    padding: 1.15vmin 1.5vmin;
     display: flex;
     flex-direction: column;
-    gap: .2vmin;
+    gap: .45vmin;
     min-width: 0;
 }
 
 .kpi__rotulo {
-    font-size: .72em;
-    letter-spacing: .07em;
+    font-size: .68em;
+    letter-spacing: .09em;
     text-transform: uppercase;
     color: var(--texto-suave);
     white-space: nowrap;
@@ -281,8 +286,10 @@ html, body {
     text-overflow: ellipsis;
 }
 
+/* Os números mandam no card, mas 2px menores em qualquer resolução: `calc` com `em`
+ * mantém a hierarquia e desce a régua junto com a tipografia da tela. */
 .kpi__valor {
-    font-size: 1.9em;
+    font-size: calc(1.9em - 2px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -291,7 +298,7 @@ html, body {
 }
 
 .kpi__nota {
-    font-size: .68em;
+    font-size: .66em;
     color: var(--texto-suave);
 }
 
@@ -305,7 +312,7 @@ html, body {
 .grafico {
     position: relative;
     min-height: 0;
-    padding: .6vmin 1vmin 1vmin;
+    padding: 1vmin 1.5vmin 1.5vmin;
     flex: 1;
 }
 
@@ -318,7 +325,7 @@ html, body {
 .desc {
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    gap: .8vmin;
+    gap: 1.6vmin;
     align-items: center;
     height: 100%;
 }
@@ -326,15 +333,15 @@ html, body {
 .desc__legenda {
     display: flex;
     flex-direction: column;
-    gap: .8vmin;
+    gap: 1.1vmin;
     min-width: 0;
 }
 
 .desc__linha {
     display: flex;
     justify-content: space-between;
-    gap: .6em;
-    font-size: .95em;
+    gap: .8em;
+    font-size: .9em;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
@@ -355,17 +362,17 @@ html, body {
 .cotacoes {
     display: flex;
     flex-direction: column;
-    gap: .5vmin;
+    gap: var(--folga-fina);
 }
 
 .cotacao {
     display: flex;
     flex-wrap: nowrap;
     align-items: baseline;
-    gap: .6em;
+    gap: .7em;
     background: var(--superficie-2);
-    border-radius: .4vmin;
-    padding: .6vmin .8vmin;
+    border-radius: .5vmin;
+    padding: .7vmin 1.1vmin;
     /* Até cinco ativos têm de caber sem rolagem: a linha cresce até um teto e
      * encolhe depois dele, em vez de sair da tela. */
     flex: 1 1 0;
@@ -375,41 +382,76 @@ html, body {
 }
 
 .cotacao__simbolo { font-weight: 800; letter-spacing: .04em; flex: none; }
-.cotacao__preco { font-size: 1.15em; font-weight: 700; font-variant-numeric: tabular-nums; margin-left: auto; }
-.cotacao__var { font-size: .8em; font-variant-numeric: tabular-nums; }
-.cotacao__hora { font-size: .65em; color: var(--texto-suave); }
+.cotacao__preco { font-size: 1.05em; font-weight: 700; font-variant-numeric: tabular-nums; margin-left: auto; }
+.cotacao__var { font-size: .78em; font-variant-numeric: tabular-nums; }
+.cotacao__hora { font-size: .64em; color: var(--texto-suave); }
 .cotacao--subiu .cotacao__var { color: var(--verde); }
 .cotacao--desceu .cotacao__var { color: var(--vermelho); }
 .cotacao--atual { border-left: .35vmin solid var(--verde); }
 .cotacao--velha { border-left: .35vmin solid var(--ambar); }
 .cotacao--indisponivel { border-left: .35vmin solid var(--vermelho); }
 
-/* ---------------------------------------------------------- rodapé */
+/* ---------------------------------------------------------- faixa de unidades */
 .rodape {
     display: flex;
     align-items: center;
-    gap: .6vw;
+    gap: 1.6vw;
     background: var(--superficie);
     border: 1px solid var(--borda);
-    border-radius: .6vmin;
-    padding: .55vmin 1vmin;
-    font-size: .78em;
+    border-radius: .7vmin;
+    padding: .8vmin 1.5vmin;
+    font-size: .76em;
     color: var(--texto-suave);
     overflow: hidden;
     white-space: nowrap;
-    min-height: 3.4vmin;
+    min-height: 4vmin;
 }
+
+.rodape__rotulo {
+    flex: none;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+/* A faixa é o que corta; o trilho é o que anda. Sem <marquee>: é uma cófila de
+ * grupos idênticos translando meia largura, que é exatamente um período. */
+.faixa {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+}
+
+.faixa__trilho {
+    display: flex;
+    width: max-content;
+    animation: deslizar var(--duracao, 40s) linear infinite;
+    will-change: transform;
+}
+
+.faixa__grupo {
+    display: flex;
+    align-items: center;
+    gap: 1.4vw;
+    padding-right: 1.4vw;
+}
+
+@keyframes deslizar {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+/* Conteúdo curto não precisa andar: sem movimento inútil, sem buraco na tela. */
+.faixa--parada .faixa__trilho { animation: none; }
 
 .rodape__item {
     background: var(--superficie-2);
     border-radius: 999px;
-    padding: .25em .7em;
-}
-
-.rodape__rotulo {
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
+    padding: .35em 1em;
+    font-variant-numeric: tabular-nums;
 }
 
 .rodape__vazio { font-style: italic; }
@@ -419,4 +461,11 @@ html, body {
     html { font-size: 12px; }
     .painel { height: auto; }
     html, body { overflow: auto; }
+}
+
+/* Painel de TV não tem operador para caçar animação: quem pediu menos movimento
+ * recebe a faixa parada, com o começo da lista visível. */
+@media (prefers-reduced-motion: reduce) {
+    .faixa__trilho,
+    .selo--on .selo__ponto { animation: none; }
 }
