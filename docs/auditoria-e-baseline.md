@@ -212,5 +212,5 @@ Cada fase abaixo precisa manter estas verdades:
 | 3 — tela resiste a falha | `a_pagina_sai_mesmo_com_tudo_fora_do_ar`, `o_ciclo_nao_quebra_com_indicadores_fora_do_ar`, `o_provedor_fora_do_ar_nao_derruba_o_snapshot` |
 | 4 — demo isolado | `test_demo.py::as_rotas_de_demo_nao_tocam_o_banco`, `o_ciclo_real_nao_se_confunde_com_demo`, `showcase_nao_importa_nada_de_dados_reais`; a identificação saiu da tela e virou `test_o_modo_fica_registrado_no_dom` + `test_o_demo_nao_ganha_badge_na_tela` (ver [`docs/modo-demo.md`](modo-demo.md)) |
 | 5 — uma fila de cotações | `test_regressao.py::nenhuma_requisicao_http_chama_o_provedor`, `test_cotacoes.py` (verde único, cache lido por todos) |
-| 6 — suíte verde junto | `python -m pytest -q` → **183 passed** (30 na baseline da Fase 1; as fases 5 a 8 somaram demo, cotações e regressão, e o refinamento de layout de 2026-10-20 somou `test_layout_tv.py`) |
+| 6 — suíte verde junto | `python -m pytest -q` → **186 passed** (30 na baseline da Fase 1; as fases 5 a 8 somaram demo, cotações e regressão, o refinamento de layout de 2026-10-20 somou `test_layout_tv.py` e a liberada do demo sem `SECRET` somou 3 testes em `test_demo.py`) |
 
