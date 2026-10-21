@@ -61,7 +61,7 @@ conexão não pegar, a mesma tela se remonta pelas requisições HTTP individuai
 | 📊 **Chart.js**                | Gráfico de realizado por dia e de desempenho   |
 | 🌐 **Flask-CORS**              | Controle de requisições CORS                   |
 | 🔐 **python-dotenv**           | Configuração através de `.env`                 |
-| 🧪 **pytest**                  | 183 testes de contrato, cálculo e regressão    |
+| 🧪 **pytest**                  | 186 testes de contrato, cálculo e regressão    |
 
 ---
 
@@ -135,7 +135,7 @@ copy .env.example .env
 | `HOST`                   | Host de execução                                                       | `0.0.0.0`          |
 | `PORT`                   | Porta da aplicação                                                     | `8092`             |
 | `DEBUG`                  | Modo debug                                                             | `false`            |
-| `SECRET`                 | Chave secreta do Flask                                                 | — (obrigatória)    |
+| `SECRET`                 | Chave de sessão do Flask                                               | no demo é gerada; fora do demo, obrigatória |
 | `DB_URI`                 | URI SQLAlchemy do `dw_vista`                                           | — (obrigatória fora do demo) |
 | `DEFAULT_OPT`            | Recorte padrão: `GER`, `GR` ou `DIR`                                   | `GR`               |
 | `DEFAULT_GR`             | Regional exibida por padrão                                            | `Parana Interior`  |
@@ -271,11 +271,13 @@ desistir de reconectar por cinco minutos, a TV recarrega a página.
 MODO_DEMO=true python wsgi.py
 ```
 
-Abre o painel com dados sintéticos determinísticos, sem warehouse e sem API de cotações.
-As rotas, o cálculo da meta e os eventos são os mesmos do modo real. O modo não ganha mais
-um selo na tela — o pedido de navbar limpa eliminou o badge âmbar — mas continua registrado
-no DOM (`<body data-modo="demo">`) e no `dashboard:status`, cujo campo `fonte` vem como
-`demo`. Detalhes e o trade-off em [`docs/modo-demo.md`](docs/modo-demo.md).
+Uma linha só basta: em demonstração o processo gera uma chave de sessão descartável e não
+consulta banco nem provedor. Abre o painel com dados sintéticos determinísticos, sem warehouse
+e sem API de cotações. As rotas, o cálculo da meta e os eventos são os mesmos do modo real. O
+modo não ganha mais um selo na tela — o pedido de navbar limpa eliminou o badge âmbar — mas
+continua registrado no DOM (`<body data-modo="demo">`) e no `dashboard:status`, cujo campo
+`fonte` vem como `demo`. Detalhes e o trade-off em
+[`docs/modo-demo.md`](docs/modo-demo.md).
 
 ---
 
@@ -295,7 +297,7 @@ escolha, com os números medidos, está em [`docs/cotacoes.md`](docs/cotacoes.md
 python -m pytest -q
 ```
 
-183 testes, sem nenhuma saída de rede: as rotas são exercitadas com a camada de execução do
+186 testes, sem nenhuma saída de rede: as rotas são exercitadas com a camada de execução do
 SQLAlchemy interceptada e o provedor de cotações, com uma sessão HTTP falsa. Cobrem o
 contrato de cada rota (path, método e forma de resposta), os filtros de negócio, as janelas
 de data, o diff do tempo real, o isolamento do modo demo, os limites e o backoff das
