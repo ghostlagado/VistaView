@@ -1,11 +1,9 @@
 # Modo demonstração (`MODO_DEMO`)
 
 ## Para que serve
-
 Abrir o painel numa TV sem conectar o warehouse nem a API de cotações: em treinamento,
 feira, gravação de vídeo ou desenvolvimento local. O modo é escolhido por configuração e
-vale para a aplicação inteira — não existe uma página paralela de demo com contrato
-próprio.
+vale para a aplicação inteira — não existe uma página paralela de demo com contrato próprio.
 
 ```bash
 MODO_DEMO=true .venv/bin/python wsgi.py
@@ -18,13 +16,26 @@ MODO_DEMO=true .venv/bin/python wsgi.py
 | indicadores | `services/metricas.py` (SQL Server `dw_vista`) | `services/showcase.py` (sintético) |
 | cotações | provedor externo (fase 7) | série sintética no cartão "Cotações" |
 | `DB_URI` | obrigatória | dispensada |
-| cabeçalho | — | selo âmbar **DEMO** ao lado da regional |
-| `nome_ciclo` no `dashboard:status` | `painel` | `demo` |
+| `<body data-modo>` | `real` | `demo` |
+| `nome_ciclo`/`fonte` no `dashboard:status` | `painel` | `demo` |
 
 As rotas, os formatos de resposta, o cálculo da meta e as cores semânticas são os mesmos
 nos dois modos: `services/metricas.montar_painel()` é compartilhado, e o teste
 `test_payload_do_demo_tem_as_mesmas_chaves_do_real` garante que o payload sintético tem as
 mesmas chaves do real (mais `cotacoes`).
+
+### O selo visual saiu da tela
+
+O refinamento de navbar pedido em 2026-10-20 determinou uma barra limpa e a remoção do badge
+**DEMO**. A identificação passou a ser do DOM para fora — `data-modo`, o campo `fonte` do
+`dashboard:status`, a variável de ambiente — e não do DOM para os olhos.
+
+Consequência honesta: uma TV em modo demo não se distingue de uma TV em modo real para quem
+olha a tela, e o critério 4 da auditoria ("visualmente identificável") ficou mais fraco em
+identificação, não em isolamento — os dados continuam incapazes de se misturar. Antes de
+apresentar o demo para um público que também vê números reais, revalide essa troca. Fazer o
+badge voltar é barato: um `{% if demo %}` no `templates/dash.html` reaproveitando a classe
+âmbar `.selo--alerta`, e inverter `test_o_demo_nao_ganha_badge_na_tela`.
 
 ## Como os dados sintéticos são gerados
 
