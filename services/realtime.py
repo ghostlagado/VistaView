@@ -6,6 +6,7 @@ cliente conectado recebe o último snapshot em cache — não uma nova bateria d
 """
 
 import gevent
+from datetime import datetime, timezone
 from flask import current_app
 from flask_socketio import emit
 
@@ -30,6 +31,9 @@ def _estado_atualizador(atualizador):
         "degradado": getattr(atualizador, "degradado", True),
         "falhasConsecutivas": getattr(atualizador, "_falhas_consecutivas", 0),
         "atualizadoEm": (getattr(atualizador, "snapshot", None) or {}).get("atualizadoEm"),
+        # Instante em que o evento saiu, com fuso: é com ele que o relógio da TV se
+        # alinha sem precisar de uma requisição só para perguntar que horas são.
+        "emitidoEm": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
 
