@@ -313,3 +313,99 @@ Quatro coisas não foram feitas porque cada uma cruza a linha do que é decisão
 
 E uma que é procedimento, não decisão técnica: **nada foi publicado**. Estes repositórios fazem
 deploy no push, então o que está aqui é validado localmente e espera confirmação para subir.
+
+## Refinamento de layout (2026-10-20, depois da Fase 9)
+
+Pedido: corrigir espaçamento, tipografia e navbar sem tocar em funcionalidade nem em
+responsividade. As decisões que custaram alguma coisa:
+
+### Uma tag no lugar de duas
+
+A barra tinha um selo de conexão e outro de "dados no ar", ambos ligados à interface. Agora há
+só `#seloConexao`, pintado por `pintarSeloConexao()` a partir do estado do socket
+(`iniciando`/`conectado`/`desconectado`/`reconectando`/`indisponivel` → `Offline`, **Online**,
+`Offline`, `Offline`, `Offline`). Online só existe quando o WebSocket está de pé.
+
+O que se perdeu aí foi o aviso de ciclo degradado, que é indicador operacional e o brief proíbe
+remover os necessários. Ele voltou como estado da mesma tag: conectado com ciclo degradado
+ganha `selo--degradado` e fica âmbar, continuando a dizer "Online". Uma tag, dois bits de
+informação, nenhum semáforo extra.
+
+### A logo é o nome
+
+`static/img/logo.svg` é o letreiro "GPS VISTA", não um símbolo. Então a regra "logo ou nome,
+nunca os dois" foi satisfeita apagando o `<span>` de texto que duplicava a imagem — não
+trocando a imagem por texto.
+
+### Um ponto onde o pedido novo venceu um critério antigo, e isso foi registrado
+
+O selo âmbar **DEMO** saiu da tela porque o pedido de navbar limpa foi explícito. O critério 4
+da auditoria dizia "visualmente identificável"; hoje a identificação é do DOM para fora
+(`data-modo`, campo `fonte` do status). O isolamento — que é a parte que protege dado — continua
+inteiro e testado. A troca está escrita em `docs/modo-demo.md` e no próprio critério 4.
+
+### A faixa é CSS, não `<marquee>`
+
+`translateX(-50%)` sobre um trilho de `width: max-content` só é loop sem salto se o número de
+cópias for **par**: aí −50% coincide com exatamente um período do grupo. Isso é travado por
+`if (alvo % 2) alvo += 1`, com `alvo = ceil(janela / período) + 1` para não aparecer buraco no
+fim antes do reinício.
+
+Três detalhes que existem para o movimento não quebrar:
+
+- a velocidade é `max(26 px/s, janela × 3%)` — medida na largura da faixa, não na da janela,
+  porque uma aba oculta reportou `innerWidth = 0` e daria uma faixa praticamente parada;
+- `--duracao` só é reescrito quando muda mais de 5%: alterar `animation-duration` reinicia a
+  animação, e reiniciar a cada ciclo de 60 s seria o salto perceptível que o brief pede para
+  evitar;
+- o DOM é remontado apenas quando os nomes das unidades mudam; entre isso, o texto é atualizado
+  no lugar, então a atualização em tempo real nunca interrompe o deslocamento.
+
+Se todas as unidades cabem (`período <= janela`), a faixa ganha `faixa--parada` e fica quieta em
+vez de girar espaço vazio. `prefers-reduced-motion: reduce` desliga a animação, e as arestas são
+suavizadas por `mask-image`, não por gradientes sobrepostos.
+
+### Relógio com segundos, sem pedir as horas
+
+O servidor passou a mandar `emitidoEm` (UTC com fuso) no `dashboard:status` — chave nova, aditiva,
+nenhum consumidor quebra. O navegador guarda só o deslocamento `servidor − Date.now()` e anda
+sozinho a cada 1000 ms. No fallback HTTP, o deslocamento vem do cabeçalho `Date` de requisições que
+já aconteceriam de qualquer forma. Zero requisição extra; o "atualizado há N s", que existia para
+provar que a tela estava viva, foi removido junto com os dois selos.
+
+### −2px em toda resolução, não −2 níveis de `em`
+
+A base é `clamp(11px, .98vw, 27px)`, então o tamanho dos números escala com a tela. Subtrair 2 px
+do resultado (`calc(1.9em - 2px)`) tira a mesma quantia em 720p e em 1440p, como pedido. Reduzir o
+fator `em` em vez disso encolheria ~5 px na TV grande e quase nada na pequena, quebrando a
+proporção entre os cartões. O peso 800 e `tabular-nums` ficaram para manter a leitura a distância.
+
+### Respiro que não empurra nada para fora da tela
+
+Espaçamento virou token (`--folga`, `--folga-fina`, `--respiro` em `vmin`) em vez de números
+soltos, para crescer junto com a resolução. Como aumentar `padding`/`gap` é exatamente o que gera
+rolagem, `html/body { overflow: hidden }` e `.painel { height: 100vh }` passaram a ser travados
+por teste.
+
+### O que a validação encontrou de errado fora do layout
+
+Na rota legada `/actions/value/`, um símbolo sem resposta do provedor era pintado como `R$ 0` —
+e `numero()` arredondaria 42,98 para "R$ 43". Não é do escopo do pedido, mas estava na tela que eu
+estava validando e mentia sobre dado financeiro: agora `buscarValorAcao` mostra duas casas
+(`R$ 40,91`) ou o placeholder `—` com `cotacao--indisponivel`.
+
+### Validação real executada
+
+- `python -m pytest -q` → **183 passed** (eram 169; +13 de `test_layout_tv.py`, mais os ajustes de
+  `test_demo.py` e `test_tempo_real.py`).
+- Capturas headless em 1280×720, 1366×768, 1920×1080 e 2560×1440: sem rolagem, sem corte, KPI
+  menor e cartões mais espaçados em todas.
+- Prova de movimento por diferença de pixels entre duas execuções (tempo virtual 3 s e 9 s): só
+  mudaram a faixa do relógio (y 20–40) e a do rodapé (y 1040–1080). Nada mais treme.
+- DOM medido ao vivo: 2 grupos, 24 chips, período 883 px, trilho 1765 px (= 2 períodos),
+  duração 33,96 s.
+- Ciclo de conexão real: Online → derrubei o servidor → Offline (`data-conexao=desconectado`),
+  com o relógio continuando a andar → reacendi → Online com as cotações repintadas.
+- Modo real com warehouse quebrado: `selo--on selo--degradado` âmbar dizendo "Online".
+- Sem rolagem e sem `<marquee>` no HTML final; `kpi__valor` medido em 18,9 px na janela de teste
+  (base 11 px × 1,9 − 2 px).
