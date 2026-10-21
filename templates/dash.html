@@ -3,155 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="600">
     <title>Dashboard | Vista View</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="/static/css/dash.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="shortcut icon" href="../static/img/faviconsvg.svg" type="image/x-icon">
+    <link rel="shortcut icon" href="/static/img/faviconsvg.svg" type="image/x-icon">
+    <link rel="stylesheet" href="/static/css/painel.css">
 </head>
-<body data-bs-theme="dark">
-    <div class="d-flex p-4 align-items-center">
-        <img src="../static/img/logo.svg" class="logo">
-        <marquee style="margin-top: 10px;" class="d-flex gap-2" direction="left" id="mq"></marquee>
+<body data-gr="{{ gr }}" data-opt="{{ opt }}" data-meta="{{ meta_percentual }}"
+      data-modo="{{ 'demo' if demo else 'real' }}">
+    <div class="painel">
+
+        <header class="cabecalho">
+            {# A logo já é o nome: `logo.svg` é o letreiro "GPS VISTA", então não se repete em texto. #}
+            <div class="cabecalho__marca">
+                <img src="/static/img/logo.svg" class="cabecalho__logo" alt="GPS Vista">
+            </div>
+            <div class="cabecalho__regional">
+                <span>REGIONAL {{ gr.split(' ')[0]|upper }}</span>
+            </div>
+            <div class="cabecalho__hora">
+                <span class="relogio" id="relogio">--:--:--</span>
+                <span class="cabecalho__data" id="dataCabecalho"></span>
+            </div>
+            <span class="selo selo--neutro" id="seloConexao"><span class="selo__ponto"></span><span>Offline</span></span>
+        </header>
+
+        <main class="corpo">
+
+            <section class="coluna coluna--esquerda">
+                <div class="cartao">
+                    <div class="cartao__cabeca"><span>Top 3 unidades</span></div>
+                    <div class="cartao__corpo"><ul class="lista" id="listaTop3Uni"></ul></div>
+                </div>
+                <div class="cartao">
+                    <div class="cartao__cabeca"><span>Top 3 supervisores</span></div>
+                    <div class="cartao__corpo"><ul class="lista" id="listaTop3Sup"></ul></div>
+                </div>
+                <div class="cartao">
+                    <div class="cartao__cabeca"><span>Cotações</span></div>
+                    <div class="cartao__corpo cotacoes" id="listaCotacoes"></div>
+                </div>
+            </section>
+
+            <section class="coluna--centro">
+                <div class="kpis">
+                    <div class="kpi kpi--info" id="kpi-totalMes">
+                        <span class="kpi__rotulo">Total no mês</span><span class="kpi__valor">—</span>
+                    </div>
+                    <div class="kpi kpi--info" id="kpi-totalDia">
+                        <span class="kpi__rotulo">Total no dia</span><span class="kpi__valor">—</span>
+                    </div>
+                    <div class="kpi kpi--neutro" id="kpi-visitasMes">
+                        <span class="kpi__rotulo">Visitas no mês</span><span class="kpi__valor">—</span>
+                    </div>
+                    <div class="kpi kpi--neutro" id="kpi-visitasDia">
+                        <span class="kpi__rotulo">Visitas no dia</span><span class="kpi__valor">—</span>
+                    </div>
+                </div>
+
+                <div class="cartao">
+                    <div class="cartao__cabeca"><span>Realizado por dia</span></div>
+                    <div class="grafico"><canvas id="grafDias"></canvas></div>
+                </div>
+
+                <div class="kpis kpis--metas">
+                    <div class="kpi kpi--neutro" id="kpi-metaMes">
+                        <span class="kpi__rotulo">Meta do mês</span><span class="kpi__valor">—</span>
+                    </div>
+                    <div class="kpi kpi--neutro" id="kpi-metaDia">
+                        <span class="kpi__rotulo">Meta de hoje</span><span class="kpi__valor">—</span>
+                    </div>
+                    <div class="kpi kpi--neutro" id="kpi-gapMes">
+                        <span class="kpi__rotulo">Gap do mês</span><span class="kpi__valor">—</span>
+                    </div>
+                    <div class="kpi kpi--neutro" id="kpi-gapDia">
+                        <span class="kpi__rotulo">Gap de hoje</span><span class="kpi__valor">—</span>
+                    </div>
+                    <div class="kpi kpi--neutro" id="kpi-escalonadas">
+                        <span class="kpi__rotulo">Escalonadas</span><span class="kpi__valor">—</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="coluna coluna--direita">
+                <div class="cartao">
+                    <div class="cartao__cabeca"><span>Performance</span><span>no prazo × fora do prazo</span></div>
+                    <div class="cartao__corpo desc">
+                        <div class="desc__legenda" id="descLegenda"></div>
+                        <div class="desc__circulo"><canvas id="grafDesempenho"></canvas></div>
+                    </div>
+                </div>
+                <div class="cartao">
+                    <div class="cartao__cabeca"><span>Realizado por gerência</span></div>
+                    <div class="cartao__corpo"><ul class="lista" id="listaGerentes"></ul></div>
+                </div>
+            </section>
+
+        </main>
+
+        <footer class="rodape">
+            <span class="rodape__rotulo">Unidades</span>
+            <div class="faixa" id="faixaUnidades"><div class="faixa__trilho"></div></div>
+        </footer>
     </div>
 
-    <div class="d-flex flex-wrap gap-2 justify-content-center p-4">
-        <div class="d-flex flex-column gap-2" style="flex: 1; flex-basis: 400px;">
-            <div class="card" style="flex-grow: 1;">
-                <div class="card-header">
-                    <p class="fw-bold">UNIDADES</p>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group" id="listUni">
-                    </ul>
-                </div>
-            </div>
-            <div class="card" style="flex-grow: 1;">
-                <div class="card-header">
-                    <p class="fw-bold">SUPERVISORES</p>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group" id="listSup">
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="card p-2 divMid" style="flex: 5; flex-basis: 400px;">
-            <img src="../static/img/gorro.png" class="gorro">
-            <div><canvas id="grafDia"></canvas></div>
-            <div class="d-flex gap-2 p-4 flex-wrap" style="line-height: .1;">
-                <div class="card flex-column gap-1 p-2 bd-green rounded" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
-                    <p class="fs-6">META MES</p>
-                    <p class="fs-6 fw-bold" id="metaMes">
-                        <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                    </p>
-                </div>
-                <div class="card flex-column gap-1 p-2 bd-green rounded" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
-                    <p class="fs-6">META DIA</p>
-                    <p class="fs-6 fw-bold" id="metaDia">
-                        <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                    </p>
-                </div>
-                <div class="card flex-column gap-1 p-2 rounded" id="ttm" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
-                    <p class="fs-6">TOTAL MES</p>
-                    <p class="fs-6 fw-bold" id="tm">
-                        <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                    </p>
-                </div>
-                <div class="card flex-column gap-1 p-2 rounded" id="ttd" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
-                    <p class="fs-6">TOTAL DIA</p>
-                    <p class="fs-6 fw-bold" id="relDia">
-                        <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                    </p>
-                </div>
-                <div class="card flex-column gap-1 p-2 rounded" id="vsm" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
-                    <p class="fs-6">VISITAS MES</p>
-                    <p class="fs-6 fw-bold" id="vm">
-                        <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                    </p>
-                </div>
-                <div class="card flex-column gap-1 p-2 rounded" id="vsd" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
-                    <p class="fs-6">VISITAS DIA</p>
-                    <p class="fs-6 fw-bold" id="vh">
-                        <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                    </p>
-                </div>
-                <div class="card flex-column gap-1 p-2 rounded" id="gm" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
-                    <p class="fs-6">GAP MENSAL</p>
-                    <p class="fs-6 fw-bold" id="gpm">
-                        <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                    </p>
-                </div>
-                <div class="card flex-column gap-1 p-2 rounded" id="gd" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
-                    <p class="fs-6">GAP DIARIO</p>
-                    <p class="fs-6 fw-bold" id="gpd">
-                        <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                    </p>
-                </div>
-                <div class="card flex-column gap-1 p-2 rounded" id="esc" style="flex-grow: 1; flex-basis: 140px; max-height: 95px;">
-                    <p class="fs-6">ESCALONADAS</p>
-                    <p class="fs-6 fw-bold" id="escalonadas">
-                        <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                    </p>
-                </div>
-            </div>
-            <br>
-        </div>
-
-        <div class="d-flex flex-column gap-2" style="flex: 1; flex-basis: 400px;">
-            <div class="card justify-content-between align-items-center p-2 d-flex flex-row text-end" style="flex-grow: 1; line-height: 1.5;">
-                <div class="d-flex p-2">
-                    <span class="badge text-bg-light">
-                        <p class="fs-5 fw-bold">GGPS3</p>
-                        <span class="fs-5 fw-bold" id="valorAct">
-                            <span class="spinner-border spinner-border-sm text-dark" role="status"></span>
-                        </span>
-                    </span>
-                </div>
-                <div class="d-flex flex-column text-end text-truncate">
-                    <strong>REGIONAL {{gr.split()[0].upper()}}</strong>
-                    <span>I-O | Guilherme Breve</span>
-                    <span id="date"></span>
-                </div>
-            </div>
-            <div class="card d-flex justify-content-around flex-row flex-no-wrap p-2 gap-2" style="flex-grow: 1;">
-                <div style="line-height: .9;" id="perfDd">
-                    <p class="fs-4 fw-bold">Perfomance.</p>
-                    <p class="fs-6">Escalonamento de tarefas!</p>
-                </div>
-                <div style="width: 150px; padding: 20px; overflow: visible;">
-                    <canvas id="piePerf"></canvas>
-                </div>
-            </div>
-            <div class="card2" style="flex-grow: 1;">
-                <div class="tools">
-                    <div class="circle">
-                        <span class="red box"></span>
-                    </div>
-                    <div class="circle">
-                        <span class="yellow box"></span>
-                    </div>
-                    <div class="circle">
-                        <span class="green box"></span>
-                    </div>
-                </div>
-                <div class="card__content p-2">
-                    <p class="fs-4 fw-bold">Realizado por Gerência.</p>
-                    <ul class="form-control" id="gers"></ul>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script>
-        sessionStorage.setItem('GR', '{{gr}}')
-        sessionStorage.setItem('OPT', '{{opt}}')
-    </script>
-    <script src="../static/js/chart.js" type="module"></script>
-    <script src="../static/js/base.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.8.1/dist/socket.io.min.js"></script>
+    <script src="/static/js/tempo-real.js"></script>
+    <script src="/static/js/painel.js"></script>
 </body>
-</html> 
+</html>

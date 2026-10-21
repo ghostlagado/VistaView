@@ -1,0 +1,215 @@
+"""Fonte sintética do modo demonstração.
+
+Nada aqui toca o warehouse nem a API de cotações — é o que permite abrir o painel numa
+TV sem VPN e sem chave de provedor. As assinaturas são as mesmas de
+`services.metricas.IndicadoresWarehouse` para que as duas fontes sejam intercambiáveis,
+e `tests/test_demo.py` garante que o payload tem as mesmas chaves e que nada aqui alcança
+o banco.
+
+Os números são coerentes entre si e evoluem durante o dia: o total do mês é uma rampa
+sobre o mês anterior, o total do dia acompanha a fração da jornada já passada, e os
+rankings vêm de uma semente fixa por (recorte, dia) — a tela se mexe, mas um supervisor
+não troca de posição de um ciclo para o outro sem motivo.
+
+Por que uma classe? O painel escolhe a fonte uma vez, no `create_app`, e guarda o objeto
+em `app.config["VISTA_FONTE"]`; rotas, Socket.IO e o modo demo chamam sempre o mesmo
+contrato. Com o warehouse já em ORM (`IndicadoresWarehouse`), manter a demonstração como
+funções soltas deixaria as duas fontes com formatos diferentes pelo mesmo papel.
+
+A única importação daqui é `services.metricas`, e só para reutilizar a whitelist de
+recorte e o agregado `montar_painel` — regra de negócio, não dado. Nenhuma função deste
+módulo abre sessão nem monta SQL.
+"""
+
+import hashlib
+import random
+from calendar import monthrange
+from datetime import datetime as dt
+
+from services import metricas
+
+UNIDADES = (
+    "Londrina", "Maringá", "Curitiba", "Cascavel", "Ponta Porã", "Campo Mourão",
+    "Apucarana", "Cornélio Procópio", "Umuarama", "Foz do Iguaçu", "Guarapuava",
+    "Toledo",
+)
+SUPERVISORES = (
+    "Tiago Moreira", "Aline Bassani", "Gustavo Ribeiro", "Denise Okada",
+    "Anderson Prado", "Carla Meneghetti", "Rodrigo Alencar", "Juliana Ferraz",
+)
+GERENTES = (
+    "Ana Paula Souza", "Carlos Eduardo Lima", "Marcos Vinicius Rocha",
+    "Juliana Ferreira", "Rafael Antonio Nunes", "Beatriz Camargo",
+    "Fernanda Prado", "Otávio Meneghetti", "Paulo Sergio Duarte",
+)
+
+# Símbolos de demonstração. A fase 7 define a lista real configurável (até cinco).
+COTACOES_DEMO = (
+    ("GGPS3", 42.0),
+    ("PETR4", 38.0),
+    ("VALE3", 61.0),
+)
+
+_INICIO_JORNADA = 7 * 60
+_FIM_JORNADA = 19 * 60
+
+
+def _rng(*chaves):
+    identificador = "|".join(str(c) for c in chaves)
+    semente = int(hashlib.sha256(identificador.encode()).hexdigest()[:16], 16)
+    return random.Random(semente)
+
+
+def _progresso_do_dia(agora):
+    """Fração da jornada já passada, entre 0 e 1. É o que faz o painel andar."""
+    minutos = agora.hour * 60 + agora.minute
+    return min(1.0, max(0.0, (minutos - _INICIO_JORNADA) / (_FIM_JORNADA - _INICIO_JORNADA)))
+
+
+def _mes_anterior_de(agora):
+    mes, ano = agora.month - 1, agora.year
+    if mes == 0:
+        mes, ano = 12, ano - 1
+    return mes, ano
+
+
+def _base_mensal(gr, agora):
+    """Total de referência do mês anterior: fixo durante todo o mês."""
+    mes, ano = _mes_anterior_de(agora)
+    return _rng(gr, "base", ano, mes).randint(900, 1800)
+
+
+def _ranking(gr, chave, nomes, agora, top=None):
+    rnd = _rng(gr, chave, agora.strftime("%Y-%m"))
+    valores = sorted(
+        ((nome, rnd.randint(40, 400)) for nome in nomes),
+        key=lambda par: par[1],
+        reverse=True,
+    )[:top]
+    return {"uni": [n for n, _ in valores], "total": [v for _, v in valores]}
+
+
+def _serie(gr, campo, chave, agora, ate_dia, media, hoje=None):
+    dias = list(range(1, ate_dia + 1))
+    rnd = _rng(gr, chave, agora.strftime("%Y-%m"))
+    totais = [max(int(round(rnd.gauss(media, media * 0.28))), 1) for _ in dias]
+    if hoje is not None:
+        totais[-1] = hoje
+    return {"dia": dias, "total": totais}
+
+
+class IndicadoresDemonstracao:
+    """As mesmas 13 folhas do warehouse, com cifras sintéticas.
+
+    Não tem estado nem dependência de sessão: tudo sai de uma semente derivada de
+    (recorte, período), o que é o que torna o painel previsível entre ciclos.
+    """
+
+    #: A whitelist de recorte é regra de negócio, não dado: o demo usa exatamente a mesma
+    #: coluna mapeada do warehouse — inclusive para provar que um recorte inválido é
+    #: recusado aqui também.
+    coluna_de_filtro = staticmethod(metricas.coluna_de_filtro)
+
+    # ------------------------------------------------------------------ CIFRAS
+    def tarefas_mes_anterior(self, campo, gr, agora=None):
+        return _base_mensal(gr, agora or dt.now())
+
+    def tarefas_total(self, campo, gr, agora=None):
+        agora = agora or dt.now()
+        base = _base_mensal(gr, agora)
+        dias_no_mes = monthrange(agora.year, agora.month)[1]
+        esperado_ate_hoje = base * (agora.day - 1 + _progresso_do_dia(agora)) / dias_no_mes
+        return int(round(esperado_ate_hoje * _rng(gr, "fator", agora.date()).uniform(0.92, 1.08)))
+
+    def tarefas_dia(self, campo, gr, agora=None):
+        agora = agora or dt.now()
+        alvo = _rng(gr, "dia", agora.date()).randint(35, 90)
+        return int(round(alvo * _progresso_do_dia(agora)))
+
+    def visitas_mes(self, campo, gr, agora=None):
+        agora = agora or dt.now()
+        return int(round(self.tarefas_total(campo, gr, agora)
+                         * _rng(gr, "visita", agora.month).uniform(.14, .26)))
+
+    def visitas_dia(self, campo, gr, agora=None):
+        agora = agora or dt.now()
+        return int(round(_rng(gr, "visita_dia", agora.date()).randint(6, 26)
+                         * _progresso_do_dia(agora)))
+
+    def escalonadas(self, campo, gr):
+        agora = dt.now()
+        return _rng(gr, "escalonadas", agora.date()).randint(4, 34)
+
+    def performance(self, campo, gr, agora=None):
+        agora = agora or dt.now()
+        concluidas = self.tarefas_total(campo, gr, agora)
+        fora = int(round(concluidas * _rng(gr, "fora", agora.month).uniform(.03, .09)))
+        return {"st": ["FORA DO PRAZO", "NO PRAZO"], "total": [fora, max(concluidas - fora, 0)]}
+
+    # ---------------------------------------------------------------- RANKINGS
+    def unidades(self, campo, gr, agora=None):
+        return _ranking(gr, "unidades", UNIDADES, agora or dt.now())
+
+    def top3_unidades(self, campo, gr, agora=None):
+        return _ranking(gr, "unidades", UNIDADES, agora or dt.now(), top=3)
+
+    def top3_sups(self, campo, gr, agora=None):
+        ranking = _ranking(gr, "sups", SUPERVISORES, agora or dt.now(), top=3)
+        return {"sup": ranking["uni"], "total": ranking["total"]}
+
+    def gerentes(self, campo, gr, agora=None):
+        agora = agora or dt.now()
+        rnd = _rng(gr, "gerentes", agora.strftime("%Y-%m"))
+        valores = sorted(
+            ((nome, int(round(rnd.randint(60, 340) * (0.4 + 0.6 * _progresso_do_dia(agora)))))
+             for nome in GERENTES),
+            key=lambda par: par[1],
+            reverse=True,
+        )
+        return {"grs": [n for n, _ in valores], "total": [v for _, v in valores]}
+
+    # ------------------------------------------------------------- SÉRIE DIÁRIA
+    def graph_days(self, campo, gr, agora=None):
+        agora = agora or dt.now()
+        media = _base_mensal(gr, agora) / 30
+        return _serie(gr, campo, "dias", agora, agora.day, media,
+                      hoje=self.tarefas_dia(campo, gr, agora))
+
+    def graph_days_ant(self, campo, gr, agora=None):
+        agora = agora or dt.now()
+        mes, ano = _mes_anterior_de(agora)
+        ate = min(agora.day, monthrange(ano, mes)[1])
+        return _serie(gr, campo, "dias_ant", agora, ate, _base_mensal(gr, agora) / 30)
+
+    # ---------------------------------------------------------------- AGREGADO
+    def painel(self, opt, gr, agora=None, meta_percentual=None):
+        """Objeto idêntico ao de `IndicadoresWarehouse.painel`, com cifras sintéticas.
+
+        Cotações não entram aqui: em qualquer modo quem monta o painel pega a faixa de um
+        provedor próprio (`app.config["VISTA_COTACOES"]`), então as duas fontes têm
+        exatamente as mesmas chaves.
+        """
+        return metricas.montar_painel(self, opt, gr, agora, meta_percentual)
+
+
+#: Instância única, do mesmo jeito que o warehouse expõe a sua.
+INDICADORES = IndicadoresDemonstracao()
+
+
+def cotacoes(agora=None):
+    """Faixa sintética com as mesmas chaves de `services.cotacoes.AtualizadorCotacoes`."""
+    agora = agora or dt.now()
+    lista = []
+    for simbolo, base in COTACOES_DEMO:
+        rnd = _rng(simbolo, agora.strftime("%Y-%m-%d"), agora.hour)
+        lista.append({
+            "simbolo": simbolo,
+            "preco": round(base * rnd.uniform(0.97, 1.03), 2),
+            "variacao": round(rnd.uniform(-1.8, 2.4), 2),
+            "atual": True,
+            "indisponivel": False,
+            "cotizadoEm": agora.strftime("%H:%M"),
+            "buscadoEm": agora.isoformat(),
+            "provedor": "demo",
+        })
+    return lista

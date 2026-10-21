@@ -1,13 +1,11 @@
-var porcentagemMeta = 15
-var meta = porcentagemMeta/100
+var PORCENTAGEM_META = 15
+var meta = PORCENTAGEM_META/100
 var date = new Date()
 var strDate = `${date.toLocaleDateString('pt-BR')} - ${date.getHours()}:${date.getMinutes()}`
 var dia = null
 var metaDiaria = null
 var metaAtual = null
-var meta = null
 var totalMes = null
-const act = null
 document.getElementById('date').textContent = strDate
 
 const gr = sessionStorage.getItem('GR')
@@ -22,7 +20,7 @@ function nomeMin(str) {
 }
 
 async function totalTarefas() {
-    const res = await fetch(`/total_de_tarefas/${opt}/${gr}`,{method:'get'})
+    const res = await fetch(`/tarefas/total/${opt}/${gr}`,{method:'get'})
     const js = await res.json()
     totalMes = js
     document.getElementById('tm').textContent = js.toLocaleString('pt-BR')
@@ -100,19 +98,20 @@ async function getUnidades() {
 }
 
 async function getEscalonadas(){
-    const res = await fetch(`/escalonadas/${opt}/${gr}`,{method:'get'})
+    const res = await fetch(`/tarefas/escalonadas/${opt}/${gr}`,{method:'get'})
     const js = await res.json()
-    document.getElementById('escalonadas').textContent = js
-    if(parseInt(js) === 0){
+    const total = js['total']
+    document.getElementById('escalonadas').textContent = total
+    if(parseInt(total) === 0){
         document.getElementById('esc').classList.add('bd-green')
     }
-    else if(parseInt(js) > 0){
+    else if(parseInt(total) > 0){
         document.getElementById('esc').classList.add('bd-red')
     }
 }
 
 async function visitasMes(){
-    const res = await fetch(`/visitas_mes/${opt}/${gr}`,{method:'get'})
+    const res = await fetch(`/visitas/mes/${opt}/${gr}`,{method:'get'})
     const js = await res.json()
     document.getElementById('vm').textContent = js
     if(js === 0){
@@ -123,7 +122,7 @@ async function visitasMes(){
 }
 
 async function visitasDia(){
-    const res = await fetch(`/visitas_dia/${opt}/${gr}`,{method:'get'})
+    const res = await fetch(`/visitas/dia/${opt}/${gr}`,{method:'get'})
     const js = await res.json()
     document.getElementById('vh').textContent = js
     if(js === 0){
@@ -134,19 +133,21 @@ async function visitasDia(){
 }
 
 async function visitasMesAnt(){
-    const res = await fetch(`/tarefas_mes_ant/${opt}/${gr}`)
+    const res = await fetch(`/tarefas/mes/anterior/${opt}/${gr}`)
     const js = await res.json()
 
-    metaAtual = await js + meta * js
+    metaAtual = js + meta * js
     dia = new Date().getDate()
-    metaDiaria = metaAtual/(30-dia)
-    
+    // Dias restantes no mês do ano corrente; evita divisão por zero no último dia.
+    const diasNoMes = new Date(date.getFullYear(), date.getMonth()+1, 0).getDate()
+    metaDiaria = metaAtual/Math.max(diasNoMes - dia, 1)
+
     document.getElementById('metaMes').textContent = Math.round(metaAtual).toLocaleString('pt-BR')
     document.getElementById('metaDia').textContent = Math.round(metaDiaria).toLocaleString('pt-BR')
 }
 
 async function tarefasDias(){
-    const res = await fetch(`/tarefas_dia/${opt}/${gr}`)
+    const res = await fetch(`/tarefas/dia/${opt}/${gr}`)
     const js = await res.json()
     var falta = parseInt(js) - parseInt(metaDiaria)
 
@@ -204,28 +205,33 @@ async function getGerentes(){
 }
 
 async function getAct(){
-    const res = await fetch('/get_act_value')
-    const js = await res.json()
-    try{
+    try {
+        const res = await fetch('/actions/value/')
+        const js = await res.json()
         document.getElementById('valorAct').textContent = `R$ ${js}`
-    }catch{
-        document.getElementById('valorAct').textContent = `R$ 0`
+    } catch {
+        document.getElementById('valorAct').textContent = `R$ --`
     }
 }
 
+// Uma falha em um indicador não pode derrubar os demais cards do dashboard.
+async function runStep(fn) {
+    try { await fn() }
+    catch (e) { console.error(`[vista-view] falha em ${fn.name}:`, e) }
+}
+
 async function start() {
-    await getAct()
-    await visitasMesAnt()
-    await totalTarefas()
-    await tarefasDias()
-    await top3Unidades()
-    await getUnidades()
-    await getEscalonadas()
-    await visitasMes()
-    await visitasDia()
-    await visitasMesAnt()
-    await top3Sups()
-    await getGerentes()
+    await runStep(getAct)
+    await runStep(visitasMesAnt)
+    await runStep(totalTarefas)
+    await runStep(tarefasDias)
+    await runStep(top3Unidades)
+    await runStep(getUnidades)
+    await runStep(getEscalonadas)
+    await runStep(visitasMes)
+    await runStep(visitasDia)
+    await runStep(top3Sups)
+    await runStep(getGerentes)
 }
 
 start()
