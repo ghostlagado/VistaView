@@ -59,6 +59,29 @@ def test_modo_demo_vem_do_ambiente(monkeypatch):
     assert Settings.from_env().demo is False
 
 
+def test_o_demo_sobe_sem_secret_no_ambiente(monkeypatch):
+    """Um `.env` com apenas `MODO_DEMO=true` precisa bastar para abrir a TV."""
+    monkeypatch.setenv("MODO_DEMO", "true")
+    monkeypatch.delenv("SECRET", raising=False)
+    configuracao = Settings.from_env()
+    assert len(configuracao.secret) == 64
+    assert configuracao.validar() is None
+
+
+def test_a_chave_descartavel_nao_se_repete_entre_processos(monkeypatch):
+    monkeypatch.setenv("MODO_DEMO", "true")
+    monkeypatch.delenv("SECRET", raising=False)
+    assert Settings.from_env().secret != Settings.from_env().secret
+
+
+def test_sem_demo_a_secret_continua_obrigatoria(monkeypatch):
+    """A chave gerada não vale para dado real: ali ela continua explícita."""
+    monkeypatch.setenv("MODO_DEMO", "false")
+    monkeypatch.delenv("SECRET", raising=False)
+    with pytest.raises(RuntimeError, match="SECRET"):
+        Settings.from_env().validar()
+
+
 # ------------------------------------------------------------------ isolamento
 def test_as_rotas_de_demo_nao_tocam_o_banco(demo, sem_banco):
     with demo.test_client() as cliente:
