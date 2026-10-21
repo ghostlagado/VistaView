@@ -1,26 +1,46 @@
 /*
- * Painel para TV 16:9. Tudo cabe numa tela: sem rolagem vertical, tipografia em vw para
- * escalar em qualquer resolução, e contraste alto para leitura à distância.
+ * Painel de TV 16:9, sem rolagem.
+ *
+ * A folha tem duas partes: os tokens (cor, folga, raio, tipo) e os componentes. Um
+ * componente não traz valor arbitrário de espaçamento ou cor — se não existe token para
+ * aquilo, o token entra primeiro. A tipografia é em `vmin` para a tela inteira escalar
+ * junto quando a TV muda de resolução.
  */
 
 :root {
-    --fundo: #0b1015;
-    --superficie: #141c24;
-    --superficie-2: #1b252f;
-    --borda: #2a3745;
-    --texto: #eef4fa;
-    --texto-suave: #9fb0c1;
-    --verde: #57c785;
-    --vermelho: #e5484d;
-    --ambar: #f0a92c;
-    --azul: #3d9be9;
-    --marca: #00a6a0;
+    --fundo: #070C11;
+    --superficie: #0E151D;
+    --superficie-2: #141E28;
+    --superficie-3: #1C2937;
+    --borda: rgba(226, 238, 250, .07);
+    --borda-forte: rgba(226, 238, 250, .14);
 
-    /* Escala única de folga. Toda separação entre cards, seções e itens sai daqui,
-     * então o respiro do painel se ajusta num lugar só. */
-    --folga: 1.15vmin;
-    --folga-fina: .85vmin;
-    --respiro: 1.3vmin;
+    --texto: #E9F1FA;
+    --texto-suave: #94A8BC;
+    --texto-mudo: #62778D;
+
+    --azul: #4FA3F7;
+    --marca: #14B8A6;
+    --verde: #3ECF8E;
+    --vermelho: #F0555F;
+    --ambar: #E7B04A;
+
+    --verde-fundo: rgba(62, 207, 142, .12);
+    --verde-borda: rgba(62, 207, 142, .38);
+    --vermelho-fundo: rgba(240, 85, 95, .12);
+    --vermelho-borda: rgba(240, 85, 95, .38);
+    --ambar-fundo: rgba(231, 176, 74, .12);
+    --ambar-borda: rgba(231, 176, 74, .38);
+
+    /* Escala de folga. Toda separação entre cards, seções e itens sai daqui, então o
+     * respiro do painel se ajusta num lugar só. */
+    --folga: 1.1vmin;
+    --folga-fina: .7vmin;
+    --respiro: 1.5vmin;
+
+    --raio: 12px;
+    --raio-fino: 8px;
+    --sombra: 0 1px 0 rgba(255, 255, 255, .035) inset, 0 10px 26px rgba(0, 0, 0, .35);
 }
 
 html, body {
@@ -30,9 +50,10 @@ html, body {
     overflow: hidden;
     background: var(--fundo);
     color: var(--texto);
-    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: clamp(11px, .98vw, 27px);
-    line-height: 1.3;
+    line-height: 1.35;
+    -webkit-font-smoothing: antialiased;
 }
 
 .painel {
@@ -45,14 +66,14 @@ html, body {
 
 /* ---------------------------------------------------------- cabeçalho */
 .cabecalho {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    display: flex;
     align-items: center;
-    gap: 2vw;
-    background: var(--superficie);
+    gap: var(--respiro);
+    background: linear-gradient(180deg, var(--superficie-2), var(--superficie));
     border: 1px solid var(--borda);
-    border-radius: .7vmin;
-    padding: 1.1vmin 1.8vmin;
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    padding: 1vmin 1.7vmin;
 }
 
 .cabecalho__marca {
@@ -62,65 +83,86 @@ html, body {
 
 /* O letreiro da marca é o identificador: não se repete em texto ao lado. */
 .cabecalho__logo {
-    height: 5vmin;
+    height: 4.6vmin;
     width: auto;
 }
 
+.cabecalho__divisor {
+    width: 1px;
+    height: 3.6vmin;
+    background: var(--borda-forte);
+    margin: 0 1.4em;
+}
+
 .cabecalho__regional {
-    font-size: .95em;
-    letter-spacing: .1em;
-    color: var(--texto-suave);
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 0;
+}
+
+.cabecalho__rotulo {
+    font-size: .6em;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--texto-mudo);
+}
+
+.cabecalho__nome {
+    font-size: 1.02em;
+    font-weight: 650;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: .6em;
+}
+
+.cabecalho__espaco {
+    flex: 1 1 auto;
 }
 
 .cabecalho__hora {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    line-height: 1.05;
-}
-
-.cabecalho__data {
-    font-size: .68em;
-    color: var(--texto-suave);
-    text-transform: capitalize;
+    line-height: 1.1;
 }
 
 .relogio {
-    font-variant-numeric: tabular-nums;
-    font-size: 1.25em;
+    font-size: 1.5em;
     font-weight: 700;
-    letter-spacing: .02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.cabecalho__data {
+    font-size: .64em;
+    color: var(--texto-mudo);
+    text-transform: capitalize;
 }
 
 .selo {
     display: inline-flex;
     align-items: center;
-    gap: .5em;
-    padding: .4em 1em;
+    gap: .55em;
+    padding: .42em 1em;
     border-radius: 999px;
-    font-size: .78em;
-    font-weight: 700;
-    letter-spacing: .06em;
+    font-size: .68em;
+    font-weight: 650;
+    letter-spacing: .08em;
+    text-transform: uppercase;
     white-space: nowrap;
-    border: 1px solid var(--borda);
-    background: var(--superficie-2);
+    border: 1px solid var(--borda-forte);
+    background: var(--superficie-3);
     color: var(--texto-suave);
 }
 
 .selo--neutro { color: var(--texto-suave); }
-.selo--on { color: var(--verde); border-color: var(--verde); }
-.selo--off { color: var(--vermelho); border-color: var(--vermelho); }
-.selo--alerta { color: var(--ambar); border-color: var(--ambar); }
+.selo--on { color: var(--verde); border-color: var(--verde-borda); background: var(--verde-fundo); }
+.selo--off { color: var(--vermelho); border-color: var(--vermelho-borda); background: var(--vermelho-fundo); }
+.selo--alerta { color: var(--ambar); border-color: var(--ambar-borda); background: var(--ambar-fundo); }
 
-/* Uma só tag na barra: quando o socket está pegando mas o ciclo do servidor não
- * entrega cifra nova, o mesmo selo fica âmbar — sem texto extra, sem segunda tag. */
-.selo--on.selo--degradado { color: var(--ambar); border-color: var(--ambar); }
+/* Uma só tag na barra: quando o socket está pegando mas o ciclo do servidor não entrega
+ * cifra nova, o mesmo selo fica âmbar — sem texto extra, sem segunda tag. */
+.selo--on.selo--degradado { color: var(--ambar); border-color: var(--ambar-borda); background: var(--ambar-fundo); }
 
 .selo__ponto {
     width: .55em;
@@ -139,23 +181,21 @@ html, body {
 /* ---------------------------------------------------------- corpo */
 .corpo {
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 3fr) minmax(0, 1.5fr);
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 3fr) minmax(0, 1.45fr);
     gap: var(--folga);
     min-height: 0;
 }
 
 .coluna {
     display: grid;
-    grid-template-rows: 1fr 1fr;
     gap: var(--folga);
     min-height: 0;
 }
 
-/* Rankings em cima, cotações embaixo. A terceira linha tem fração própria porque
- * `auto` é o tamanho do conteúdo: com cinco ativos a faixa passava da tela e o cartão
- * saía cortado a 720p. */
+/* Ranking tem a altura do próprio conteúdo; o que sobra vai para as cotações, que é onde
+ * a lista cresce (até cinco ativos). Com `1fr` nas três linhas sobrava buraco no Top 3. */
 .coluna--esquerda {
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .95fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .coluna--centro {
@@ -165,15 +205,15 @@ html, body {
     min-height: 0;
 }
 
-/* Desempenho e gerências dividem a coluna direita. */
 .coluna--direita {
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1.35fr);
+    grid-template-rows: minmax(0, .85fr) minmax(0, 1.6fr);
 }
 
 .cartao {
     background: var(--superficie);
     border: 1px solid var(--borda);
-    border-radius: .7vmin;
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -183,74 +223,105 @@ html, body {
 .cartao__cabeca {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
     gap: 1em;
-    padding: .95vmin 1.5vmin;
+    padding: 1.05vmin 1.5vmin;
     border-bottom: 1px solid var(--borda);
-    font-size: .76em;
-    font-weight: 700;
-    letter-spacing: .1em;
-    color: var(--texto-suave);
+    font-size: .68em;
+    font-weight: 650;
+    letter-spacing: .12em;
     text-transform: uppercase;
+    color: var(--texto-mudo);
+}
+
+/* O segundo rótulo do cabeçalho é complemento, não título: caixa baixa e mais leve. */
+.cartao__cabeca span + span {
+    font-weight: 500;
+    letter-spacing: .02em;
+    text-transform: none;
+    color: var(--texto-mudo);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .cartao__corpo {
-    padding: var(--respiro) 1.5vmin;
+    padding: 1.2vmin 1.4vmin;
     overflow: hidden;
     min-height: 0;
     display: flex;
     flex-direction: column;
+    gap: var(--folga-fina);
     flex: 1;
 }
 
+/* ---------------------------------------------------------- rankings */
 .lista {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
-    flex: 1;
     flex-direction: column;
-    justify-content: space-between;
-    gap: var(--folga-fina);
+    gap: .35vmin;
+    flex: 1;
+    min-height: 0;
 }
 
 .lista__item {
-    display: flex;
-    justify-content: space-between;
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.7em minmax(0, 1fr) auto;
     align-items: center;
-    gap: 1em;
-    flex: 0 1 auto;
-    min-height: 0;
+    gap: .9em;
+    padding: .95vmin 1vmin 1.05vmin;
     overflow: hidden;
+    border-radius: var(--raio-fino);
     background: var(--superficie-2);
-    border-radius: .5vmin;
-    padding: 1.15vmin 1.4vmin;
-    font-size: .95em;
 }
+
+.lista__posicao {
+    font-size: .78em;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    color: var(--texto-mudo);
+}
+
+.lista__item--primeiro {
+    background: var(--superficie-3);
+}
+
+.lista__item--primeiro .lista__posicao { color: var(--marca); }
+.lista__item--primeiro .lista__nome { color: var(--texto); }
 
 .lista__nome {
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--texto-suave);
 }
 
 .lista__valor {
+    font-weight: 650;
     font-variant-numeric: tabular-nums;
-    color: var(--texto-suave);
     white-space: nowrap;
 }
 
-.lista__posicao {
-    color: var(--marca);
-    font-weight: 700;
-    min-width: 1.2em;
+/* Barra proporcional ao maior valor da própria lista: a linha passa a dizer grandeza,
+ * não só ordem. A largura vem do JS, junto com o número. */
+.lista__barra {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--marca), rgba(20, 184, 166, .18));
 }
 
 .lista__vazio {
-    font-style: italic;
-    color: var(--texto-suave);
-    padding: .6vmin 0;
+    font-size: .85em;
+    color: var(--texto-mudo);
+    padding: .8vmin 1vmin;
 }
 
 /* ---------------------------------------------------------- KPIs */
@@ -267,20 +338,21 @@ html, body {
 .kpi {
     background: var(--superficie);
     border: 1px solid var(--borda);
-    border-left: .5vmin solid var(--borda);
-    border-radius: .6vmin;
-    padding: 1.15vmin 1.5vmin;
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    padding: 1.15vmin 1.4vmin 1.25vmin;
     display: flex;
     flex-direction: column;
-    gap: .45vmin;
+    gap: .2vmin;
     min-width: 0;
 }
 
 .kpi__rotulo {
-    font-size: .68em;
-    letter-spacing: .09em;
+    font-size: .6em;
+    font-weight: 600;
+    letter-spacing: .11em;
     text-transform: uppercase;
-    color: var(--texto-suave);
+    color: var(--texto-mudo);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -292,27 +364,33 @@ html, body {
     font-size: calc(1.9em - 2px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    letter-spacing: -.01em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
+/* A nota responde à pergunta que o número sozinho deixa no ar — 928 de quê? */
 .kpi__nota {
-    font-size: .66em;
-    color: var(--texto-suave);
+    font-size: .62em;
+    color: var(--texto-mudo);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.kpi--ok { border-left-color: var(--verde); }
+/* Cor é estado, não decoração: só o valor muda de tom, a borda continua neutra. */
 .kpi--ok .kpi__valor { color: var(--verde); }
-.kpi--erro { border-left-color: var(--vermelho); }
 .kpi--erro .kpi__valor { color: var(--vermelho); }
-.kpi--neutro .kpi__valor { color: var(--texto); }
-.kpi--info { border-left-color: var(--azul); }
+.kpi--alerta .kpi__valor { color: var(--ambar); }
+.kpi--neutro .kpi__valor,
+.kpi--info .kpi__valor { color: var(--texto); }
 
 .grafico {
     position: relative;
     min-height: 0;
-    padding: 1vmin 1.5vmin 1.5vmin;
+    padding: 1.2vmin 1.4vmin 1.4vmin;
     flex: 1;
 }
 
@@ -324,72 +402,158 @@ html, body {
 /* ---------------------------------------------------------- desempenho */
 .desc {
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    gap: 1.6vmin;
+    grid-template-columns: minmax(0, 1fr) minmax(0, .9fr);
+    gap: 1.4vmin;
     align-items: center;
     height: 100%;
+    min-height: 0;
 }
 
 .desc__legenda {
     display: flex;
     flex-direction: column;
-    gap: 1.1vmin;
+    gap: 1vmin;
     min-width: 0;
 }
 
 .desc__linha {
-    display: flex;
-    justify-content: space-between;
-    gap: .8em;
-    font-size: .9em;
-    font-variant-numeric: tabular-nums;
+    display: grid;
+    grid-template-columns: .75em minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .7em;
+    font-size: .82em;
     white-space: nowrap;
 }
 
-.desc__linha span:first-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 700;
+.desc__ponto {
+    width: .75em;
+    height: .75em;
+    border-radius: 3px;
+    background: currentColor;
 }
 
+.desc__titulo {
+    font-weight: 650;
+    letter-spacing: .02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.desc__cifra {
+    font-variant-numeric: tabular-nums;
+    color: var(--texto-suave);
+}
+
+/* Caixa quadrada: sem `aspect-ratio` o anel herdava a altura do cartão e encostava na
+ * borda direita, deixando vazio embaixo da legenda. */
 .desc__circulo {
     position: relative;
     height: 100%;
     min-height: 0;
+    max-width: 100%;
+    aspect-ratio: 1 / 1;
+    justify-self: center;
+}
+
+.desc__circulo canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* O total mora no furo da rosca: é o número que a legenda estava disputando. */
+.desc__centro {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.desc__total {
+    font-size: 1.45em;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+
+.desc__rotulo {
+    font-size: .58em;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--texto-mudo);
 }
 
 /* ---------------------------------------------------------- cotações */
 .cotacoes {
     display: flex;
     flex-direction: column;
-    gap: var(--folga-fina);
+    justify-content: flex-start;
+    gap: .3vmin;
+    flex: 1;
+    min-height: 0;
 }
 
 .cotacao {
-    display: flex;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto auto;
     align-items: baseline;
-    gap: .7em;
-    background: var(--superficie-2);
-    border-radius: .5vmin;
-    padding: .7vmin 1.1vmin;
-    /* Até cinco ativos têm de caber sem rolagem: a linha cresce até um teto e
-     * encolhe depois dele, em vez de sair da tela. */
+    align-content: center;
+    gap: .8em;
+    padding: 0 .9vmin;
+    border-radius: var(--raio-fino);
+    /* A lista preenche o cartão: com três ou cinco ativos as faixas têm a mesma altura
+     * e o buraco embaixo de uma lista curta não aparece. */
     flex: 1 1 0;
     min-height: 0;
-    max-height: 5.5vmin;
     overflow: hidden;
 }
 
-.cotacao__simbolo { font-weight: 800; letter-spacing: .04em; flex: none; }
-.cotacao__preco { font-size: 1.05em; font-weight: 700; font-variant-numeric: tabular-nums; margin-left: auto; }
-.cotacao__var { font-size: .78em; font-variant-numeric: tabular-nums; }
-.cotacao__hora { font-size: .64em; color: var(--texto-suave); }
+.cotacao:not(:last-child) { box-shadow: inset 0 -1px 0 var(--borda); }
+
+.cotacao__simbolo {
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+
+.cotacao__preco {
+    justify-self: end;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+}
+
+.cotacao__var {
+    min-width: 4.4em;
+    text-align: right;
+    font-size: .78em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.cotacao__hora {
+    min-width: 3.2em;
+    text-align: right;
+    font-size: .66em;
+    color: var(--texto-mudo);
+    font-variant-numeric: tabular-nums;
+}
+
 .cotacao--subiu .cotacao__var { color: var(--verde); }
 .cotacao--desceu .cotacao__var { color: var(--vermelho); }
-.cotacao--atual { border-left: .35vmin solid var(--verde); }
-.cotacao--velha { border-left: .35vmin solid var(--ambar); }
-.cotacao--indisponivel { border-left: .35vmin solid var(--vermelho); }
+.cotacao--velha .cotacao__hora { color: var(--ambar); }
+.cotacao--indisponivel .cotacao__preco { color: var(--texto-mudo); }
+
+/* O pé do cartão ancora a lista curta e diz de onde veio o preço. */
+.cotacoes__pe {
+    margin-top: auto;
+    padding-top: .8vmin;
+    border-top: 1px solid var(--borda);
+    font-size: .62em;
+    letter-spacing: .06em;
+    color: var(--texto-mudo);
+    font-variant-numeric: tabular-nums;
+}
 
 /* ---------------------------------------------------------- faixa de unidades */
 .rodape {
@@ -398,24 +562,26 @@ html, body {
     gap: 1.6vw;
     background: var(--superficie);
     border: 1px solid var(--borda);
-    border-radius: .7vmin;
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
     padding: .8vmin 1.5vmin;
-    font-size: .76em;
-    color: var(--texto-suave);
+    font-size: .8em;
     overflow: hidden;
     white-space: nowrap;
-    min-height: 4vmin;
+    min-height: 4.4vmin;
 }
 
 .rodape__rotulo {
     flex: none;
-    font-weight: 700;
-    letter-spacing: .1em;
+    font-size: .82em;
+    font-weight: 650;
+    letter-spacing: .14em;
     text-transform: uppercase;
+    color: var(--texto-mudo);
 }
 
-/* A faixa é o que corta; o trilho é o que anda. Sem <marquee>: é uma cófila de
- * grupos idênticos translando meia largura, que é exatamente um período. */
+/* A faixa é o que corta; o trilho é o que anda. Sem <marquee>: é uma cófila de grupos
+ * idênticos translando meia largura, que é exatamente um período. */
 .faixa {
     position: relative;
     flex: 1 1 auto;
@@ -435,8 +601,8 @@ html, body {
 .faixa__grupo {
     display: flex;
     align-items: center;
-    gap: 1.4vw;
-    padding-right: 1.4vw;
+    gap: 1.6vw;
+    padding-right: 1.6vw;
 }
 
 @keyframes deslizar {
@@ -448,14 +614,25 @@ html, body {
 .faixa--parada .faixa__trilho { animation: none; }
 
 .rodape__item {
-    background: var(--superficie-2);
+    display: inline-flex;
+    align-items: center;
+    gap: .55em;
+    color: var(--texto-suave);
+}
+
+.rodape__total {
+    padding: .05em .6em;
+    border: 1px solid var(--borda);
     border-radius: 999px;
-    padding: .35em 1em;
+    background: var(--superficie-2);
+    color: var(--texto);
+    font-weight: 650;
     font-variant-numeric: tabular-nums;
 }
 
-.rodape__vazio { font-style: italic; }
+.rodape__vazio { color: var(--texto-mudo); font-size: .9em; }
 
+/* ---------------------------------------------------------- telas fora do 16:9 */
 /* Em telas baixas a prioridade é continuar legível, não caber inteiro. */
 @media (max-height: 600px) {
     html { font-size: 12px; }
@@ -463,8 +640,33 @@ html, body {
     html, body { overflow: auto; }
 }
 
-/* Painel de TV não tem operador para caçar animação: quem pediu menos movimento
- * recebe a faixa parada, com o começo da lista visível. */
+/* Abaixo de ~1200 px o anel medido pela altura do cartão esmaga a legenda: ele passa a
+ * ser medido pela largura da coluna. Na linha de cotação a hora sai — o pé do cartão já
+ * informa quando a faixa foi coletada. */
+@media (max-width: 1180px) {
+    .desc { grid-template-columns: minmax(0, 1fr) minmax(0, .95fr); }
+    .desc__circulo { height: auto; width: 100%; max-width: 122px; justify-self: center; }
+    /* A cifra muda de linha: apertar título e número lado a lado truncaria um dos dois. */
+    .desc__linha { grid-template-columns: .75em minmax(0, 1fr); }
+    .desc__cifra { grid-column: 2; }
+    .cotacao { gap: .5em; grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto; }
+    .cotacao__hora { display: none; }
+}
+
+/* Tablet e celular não são onde este painel roda, mas abrir nele não pode quebrar:
+ * uma coluna, na ordem de leitura do painel. */
+@media (max-width: 900px) {
+    .painel { height: auto; }
+    html, body { overflow: auto; }
+    .corpo { grid-template-columns: minmax(0, 1fr); }
+    .kpis, .kpis--metas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .coluna--esquerda, .coluna--direita { grid-template-rows: none; }
+    .cartao { min-height: 34vw; }
+    .cabecalho__divisor, .cabecalho__regional { display: none; }
+}
+
+/* Painel de TV não tem operador para caçar animação: quem pediu menos movimento recebe a
+ * faixa parada, com o começo da lista visível. */
 @media (prefers-reduced-motion: reduce) {
     .faixa__trilho,
     .selo--on .selo__ponto { animation: none; }
