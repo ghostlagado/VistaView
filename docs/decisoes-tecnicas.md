@@ -409,3 +409,30 @@ estava validando e mentia sobre dado financeiro: agora `buscarValorAcao` mostra 
 - Modo real com warehouse quebrado: `selo--on selo--degradado` âmbar dizendo "Online".
 - Sem rolagem e sem `<marquee>` no HTML final; `kpi__valor` medido em 18,9 px na janela de teste
   (base 11 px × 1,9 − 2 px).
+
+## Demo como único modo em uso (2026-10-21)
+
+O painel ainda não está em produção e vai rodar só em demonstração. Isso revelou um bloqueio que
+a suíte não via: `validar()` exigia `SECRET` mesmo quando nada consulta o banco, então um `.env`
+de uma linha — exatamente o caso do modo demo — não subia.
+
+A correção é gerar a chave no `Settings.from_env`, e não relaxar a validação:
+
+- **demo**: sem `SECRET` no ambiente, o processo cria uma `token_hex(32)` descartável. Não há
+  endpoint autenticado nem sessão de usuário no painel, então a chave só protege o cookie de
+  sessão do Flask; gerar por processo é o mesmo que um servidor de desenvolvimento faz.
+- **real**: `SECRET` continua obrigatória, e a `validar()` não mudou. Um valor fixo no código
+  seria segredo público, e uma chave que muda a cada restart derruba sessões de quem conecta.
+
+O que fica deliberadamente de fora enquanto o projeto é só demo: persistência de cotações,
+restrição de CORS, segundo provedor e limpeza de arquivos órfãos. Os quatro são decisões que
+dependem de produção ou de uso por terceiros, e nenhuma trava o uso atual.
+
+### Validação real executada
+
+- `MODO_DEMO =True` sozinho no `.env` → sobe, `/` responde 200 com `data-modo="demo"`, rota de
+  indicador 200, handshake do Socket.IO 200, e o log do processo não contém chave, token, senha
+  nem URI (arquivo de log com 0 byte).
+- `python -m pytest -q` → **186 passed**, com três testes novos: o demo sem `SECRET` gera chave de
+  64 caracteres e vale, a chave não se repete entre processos, e no modo real a ausência dela
+  ainda falha.
