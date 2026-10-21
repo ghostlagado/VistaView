@@ -1,8 +1,9 @@
-"""Modo demonstração: fonte sintética, isolamento do warehouse e identificação na tela.
+"""Modo demonstração: fonte sintética, isolamento do warehouse e registro do modo.
 
 Estes testes existem para cumprir três regras do brief: o demo não pode contaminar
 consultas reais, tem de funcionar sem a API externa de cotações e tem de ser
-visualmente identificável.
+identificável. A identificação era um selo na barra e passou a ser o `data-modo` do
+DOM, a pedido do layout da TV — ver `test_o_demo_nao_ganha_badge_na_tela`.
 """
 
 import re
@@ -162,15 +163,18 @@ def test_cotacoes_de_demo_vem_sem_qualquer_api():
 
 
 # ------------------------------------------------------------------ identificação
-def test_o_painel_marca_demo_no_cabecalho(demo):
+# A barra não mostra mais um selo DEMO (o layout da TV ficou com uma única tag de
+# status). O modo continua registrado no DOM, para que uma inspeção ou um print
+# anonimizado ainda diga de onde vieram aqueles números.
+def test_o_demo_nao_ganha_badge_na_tela(demo):
     html = demo.test_client().get("/").get_data(as_text=True)
-    assert "selo--demo" in html
-    assert re.search(r">\s*DEMO\s*<", html)
-
-
-def test_o_painel_real_nao_marca_demo(app):
-    html = app.test_client().get("/").get_data(as_text=True)
     assert "selo--demo" not in html
+    assert not re.search(r">\s*DEMO\s*<", html)
+
+
+def test_o_modo_fica_registrado_no_dom(demo, app):
+    assert 'data-modo="demo"' in demo.test_client().get("/").get_data(as_text=True)
+    assert 'data-modo="real"' in app.test_client().get("/").get_data(as_text=True)
 
 
 def test_o_ciclo_de_atualizacao_usa_a_fonte_do_demo(demo):
