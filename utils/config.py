@@ -7,6 +7,7 @@ e continuam sendo constantes, não configuração de execução.
 
 from dataclasses import dataclass
 from os import getenv
+from secrets import token_hex
 
 opts = {
     'GER': 'cr.Gerente',
@@ -62,17 +63,22 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        demo = _flag("MODO_DEMO")
         return cls(
             host=getenv("HOST", "0.0.0.0"),
             port=_inteiro("PORT", 8092),
             debug=_flag("DEBUG"),
-            secret=getenv("SECRET", ""),
+            # Demonstração não tem login nem dado sensível, então uma chave descartável
+            # por processo basta — e evita a tentação de commitar uma SECRET de exemplo.
+            # No modo real a chave explícita continua obrigatória: sem ela as sessões
+            # mudam a cada restart e qualquer valor padrão no código seria segredo público.
+            secret=getenv("SECRET", "") or (token_hex(32) if demo else ""),
             db_uri=getenv("DB_URI", ""),
             default_opt=getenv("DEFAULT_OPT", "GR"),
             default_gr=getenv("DEFAULT_GR", "Parana Interior"),
             meta_percentual=_flutuador("META_PERCENTUAL", 15.0),
             atualizacao_segundos=_inteiro("ATUALIZACAO_SEGUNDOS", 60),
-            demo=_flag("MODO_DEMO"),
+            demo=demo,
             action_api=getenv("ACTION_API", "").strip(),
             cotacoes_simbolos=getenv("COTACOES_SIMBOLOS", "GGPS3"),
             cotacoes_segundos=_inteiro("COTACOES_SEGUNDOS", 300),
