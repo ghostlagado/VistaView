@@ -37,8 +37,10 @@ O projeto foi desenvolvido para apoiar o monitoramento operacional e gerencial, 
 
 O Vista View é uma camada de visualização sobre os dados do warehouse do GPS Vista. A tela
 principal é um painel **16:9 sem rolagem**, pensado para ficar ligado em uma TV de gerência:
-tipografia grande, números tabulares, cores semânticas (verde/vermelho/âmbar) e atualização
-empurrada pelo servidor por Socket.IO — a página não recarrega.
+tipografia discreta com números tabulares, cores semânticas (verde/vermelho/âmbar) e
+atualização empurrada pelo servidor por Socket.IO — a página não recarrega. A barra do topo
+tem só o letreiro da marca, a regional, o relógio com segundos e um selo **Online/Offline**
+que reflete o socket real; o rodapé faz as unidades desfilarem em movimento contínuo por CSS.
 
 Um único ciclo no servidor recalcula o painel e transmite pelo socket apenas o que mudou. Se a
 conexão não pegar, a mesma tela se remonta pelas requisições HTTP individuais.
@@ -59,7 +61,7 @@ conexão não pegar, a mesma tela se remonta pelas requisições HTTP individuai
 | 📊 **Chart.js**                | Gráfico de realizado por dia e de desempenho   |
 | 🌐 **Flask-CORS**              | Controle de requisições CORS                   |
 | 🔐 **python-dotenv**           | Configuração através de `.env`                 |
-| 🧪 **pytest**                  | 169 testes de contrato, cálculo e regressão    |
+| 🧪 **pytest**                  | 183 testes de contrato, cálculo e regressão    |
 
 ---
 
@@ -269,10 +271,11 @@ desistir de reconectar por cinco minutos, a TV recarrega a página.
 MODO_DEMO=true python wsgi.py
 ```
 
-Abre o painel com dados sintéticos determinísticos, sem warehouse e sem API de cotações, e
-com um selo âmbar **DEMO** no cabeçalho para ninguém confundir a tela com dado real. As
-rotas, o cálculo da meta e os eventos são os mesmos do modo real. Detalhes em
-[`docs/modo-demo.md`](docs/modo-demo.md).
+Abre o painel com dados sintéticos determinísticos, sem warehouse e sem API de cotações.
+As rotas, o cálculo da meta e os eventos são os mesmos do modo real. O modo não ganha mais
+um selo na tela — o pedido de navbar limpa eliminou o badge âmbar — mas continua registrado
+no DOM (`<body data-modo="demo">`) e no `dashboard:status`, cujo campo `fonte` vem como
+`demo`. Detalhes e o trade-off em [`docs/modo-demo.md`](docs/modo-demo.md).
 
 ---
 
@@ -292,11 +295,12 @@ escolha, com os números medidos, está em [`docs/cotacoes.md`](docs/cotacoes.md
 python -m pytest -q
 ```
 
-169 testes, sem nenhuma saída de rede: as rotas são exercitadas com a camada de execução do
+183 testes, sem nenhuma saída de rede: as rotas são exercitadas com a camada de execução do
 SQLAlchemy interceptada e o provedor de cotações, com uma sessão HTTP falsa. Cobrem o
 contrato de cada rota (path, método e forma de resposta), os filtros de negócio, as janelas
 de data, o diff do tempo real, o isolamento do modo demo, os limites e o backoff das
-cotações, e os seis critérios de aceitação anti-regressão de
+cotações, o layout do painel (faixa contínua, selo único, relógio com segundos, números
+−2px, sem rolagem) e os seis critérios de aceitação anti-regressão de
 [`docs/auditoria-e-baseline.md`](docs/auditoria-e-baseline.md).
 
 ---
