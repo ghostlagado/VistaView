@@ -7,29 +7,23 @@
     <link rel="shortcut icon" href="/static/img/faviconsvg.svg" type="image/x-icon">
     <link rel="stylesheet" href="/static/css/painel.css">
 </head>
-<body data-gr="{{ gr }}" data-opt="{{ opt }}" data-meta="{{ meta_percentual }}">
+<body data-gr="{{ gr }}" data-opt="{{ opt }}" data-meta="{{ meta_percentual }}"
+      data-modo="{{ 'demo' if demo else 'real' }}">
     <div class="painel">
 
         <header class="cabecalho">
+            {# A logo já é o nome: `logo.svg` é o letreiro "GPS VISTA", então não se repete em texto. #}
             <div class="cabecalho__marca">
                 <img src="/static/img/logo.svg" class="cabecalho__logo" alt="GPS Vista">
-                <span class="cabecalho__titulo">GPS VISTA</span>
             </div>
             <div class="cabecalho__regional">
                 <span>REGIONAL {{ gr.split(' ')[0]|upper }}</span>
-                {% if demo %}
-                <span class="selo selo--demo"><span class="selo__ponto"></span><span>DEMO</span></span>
-                {% endif %}
             </div>
             <div class="cabecalho__hora">
-                <span class="relogio" id="relogio">--:--</span>
+                <span class="relogio" id="relogio">--:--:--</span>
                 <span class="cabecalho__data" id="dataCabecalho"></span>
             </div>
-            <div class="selos">
-                <span class="selo" id="seloConexao"><span class="selo__ponto"></span><span>iniciando…</span></span>
-                <span class="selo" id="seloAtualizacao"><span class="selo__rotulo">—</span></span>
-                <span class="selo" id="seloQualidade"><span class="selo__ponto"></span><span>aguardando o ciclo…</span></span>
-            </div>
+            <span class="selo selo--neutro" id="seloConexao"><span class="selo__ponto"></span><span>Offline</span></span>
         </header>
 
         <main class="corpo">
@@ -105,7 +99,10 @@
 
         </main>
 
-        <footer class="rodape" id="rodapeUnidades"></footer>
+        <footer class="rodape">
+            <span class="rodape__rotulo">Unidades</span>
+            <div class="faixa" id="faixaUnidades"><div class="faixa__trilho"></div></div>
+        </footer>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
