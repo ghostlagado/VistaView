@@ -16,6 +16,7 @@ MODO_DEMO=true .venv/bin/python wsgi.py
 | indicadores | `services/metricas.py` (SQL Server `dw_vista`) | `services/showcase.py` (sintético) |
 | cotações | provedor externo (fase 7) | série sintética no cartão "Cotações" |
 | `DB_URI` | obrigatória | dispensada |
+| `SECRET` | obrigatória | dispensada — o processo gera uma chave de sessão descartável |
 | `<body data-modo>` | `real` | `demo` |
 | `nome_ciclo`/`fonte` no `dashboard:status` | `painel` | `demo` |
 
