@@ -1,5 +1,7 @@
 """Contrato e comportamento da atualização em tempo real (Socket.IO)."""
 
+from datetime import datetime, timezone
+
 import pytest
 
 from app import create_app
@@ -114,12 +116,23 @@ def test_status_reporta_fonte_e_horario(atualizador, app):
     alvo, gravador, fonte = atualizador
     alvo.ciclo(app)
     status = gravador.de(EVENTO_STATUS)[0]
-    assert status == {
-        "fonte": "teste",
-        "degradado": False,
-        "falhasConsecutivas": 0,
-        "atualizadoEm": "2026-10-20T12:00:00",
-    }
+    assert status["fonte"] == "teste"
+    assert status["degradado"] is False
+    assert status["falhasConsecutivas"] == 0
+    assert status["atualizadoEm"] == "2026-10-20T12:00:00"
+
+
+def test_status_leva_instante_com_fuso_para_o_relogio_da_tv(atualizador, app):
+    """`emitidoEm` é o que alinha o relógio da tela ao do servidor.
+
+    Sem fuso, uma TV em outro fuso acertaria o relógio com uma defasagem de horas, e
+    o painel mostraria segundos errados com a conexão perfeita.
+    """
+    alvo, gravador, fonte = atualizador
+    alvo.ciclo(app)
+    emitido = datetime.fromisoformat(gravador.de(EVENTO_STATUS)[0]["emitidoEm"])
+    assert emitido.tzinfo is not None
+    assert abs((datetime.now(timezone.utc) - emitido).total_seconds()) < 5
 
 
 def test_falha_nao_apaga_o_ultimo_valor_valido(atualizador, app):
