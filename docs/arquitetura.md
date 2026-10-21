@@ -7,23 +7,79 @@ descreve o código real do repositório; decisões com alternativas descartadas 
 ## As camadas
 
 ```text
-navegador na TV
-   |
-   v  HTTP / Socket.IO
-[ templates + static/js ]  desenha o payload, escuta o socket, cai para consulta se precisar
-   |
-   v
-[ routes/ ]                valida o recorte e serializa — nenhuma regra de negócio aqui
-   |
-   v  fonte = app.config["VISTA_FONTE"]
-[ IndicadoresWarehouse ]  [ IndicadoresDemonstracao ]  [ AtualizadorCotacoes ]
-   metricas.py                showcase.py                  cotacoes.py
-   |
-   v  ORM (só a fonte real)
-[ models/ ]                Tarefa - Recurso - Estrutura - Cr: espelho de leitura, nunca escrita
-   |
-   v  SQLAlchemy
-[ SQLite | SQL Server ]    decidido por DB_URI: SQL Server com URI, SQLite local sem ela
+                       ┌────────────────────────────┐
+   navegador (TV) ──── │  templates + static/js     │  desenha, consulta, escuta o socket
+                       └─────────────┬──────────────┘
+                                     │ HTTP / Socket.IO
+                       ┌─────────────▼──────────────┐
+   routes/             │  valida recorte, serializa │  nenhuma regra de negócio aqui
+                       └─────────────┬──────────────┘
+                                     │ fonte = app.config["VISTA_FONTE"]
+             ┌───────────────────────┼───────────────────────┐
+             │                       │                       │
+   ┌─────────▼─────────┐   ┌─────────▼─────────┐   ┌─────────▼─────────┐
+   │ IndicadoresWarehouse│ │IndicadoresDemonstracao│ │ AtualizadorCotacoes│
+   │ (services/metricas) │ │ (services/showcase) │ │ (services/cotacoes) │
+   └─────────┬──────────┘   └─────────────────────┘   └───────────────────┘
+             │ ORM
+   ┌─────────▼──────────┐
+   │ models/ (espelho)  │  Tarefa · Recurso · Estrutura · Cr
+   └─────────┬──────────┘
+             │ SQLAlchemy
+   ┌─────────▼──────────┐
+   │ SQLite  | SQL Server│  decidido por DB_URI
+   └─────────────────────┘
+```
+
+## Estrutura do repositório
+
+```text
+VistaView/
+│
+├── app.py                 # app factory: configuração, fontes de dado e ciclos
+├── wsgi.py                # entrada de produção (inicia e encerra os serviços)
+│
+├── models/                # espelho de leitura do warehouse, em ORM (só leitura)
+│   ├── base.py            #   ModeloBase + aplicar_esquema (o schema por banco)
+│   ├── tarefa.py          #   TAREFA: status, expirada, escalonada, checklist
+│   ├── recurso.py         #   RECURSO: quem fechou a tarefa
+│   ├── estrutura.py       #   DM_ESTRUTURA: a unidade e a ponte para a cadeia
+│   └── cr.py              #   DM_CR: a cadeia de comando, dona do recorte
+│
+├── routes/                # camada HTTP: só valida o recorte e serializa
+│   ├── acoes.py           #   /actions/value/ e /actions/cotacoes/ (leem cache)
+│   ├── general.py         #   desempenho, rankings, unidades, gráficos
+│   ├── tarefas.py         #   totais, meta do mês anterior, escalonadas
+│   └── visitas.py         #   visitas do mês e do dia
+│
+├── services/              # regras de cálculo e processos em segundo plano
+│   ├── metricas.py        #   IndicadoresWarehouse: as 13 folhas, em ORM
+│   ├── showcase.py        #   IndicadoresDemonstracao: as mesmas folhas, sintéticas
+│   ├── semente.py         #   popula o SQLite local (nunca o warehouse)
+│   ├── fonte.py           #   costura que escolhe a fonte por configuração
+│   ├── cotacoes.py        #   UM ciclo que consulta o provedor; todos leem o cache
+│   └── realtime.py        #   AtualizadorPainel, diff e handlers do Socket.IO
+│
+├── utils/
+│   ├── config.py          # Settings: o único ponto que lê o ambiente
+│   ├── db.py, socket.py, blueprints.py
+│
+├── templates/
+│   ├── dash.html          # painel 16:9
+│   └── Example.html       # referência visual antiga (/showcase)
+│
+├── static/
+│   ├── css/painel.css
+│   ├── js/painel.js       # único desenhador da tela
+│   ├── js/tempo-real.js   # socket, reconexão e recarga de último recurso
+│   └── img/
+│
+├── tests/                 # contratos, cálculos, janelas de data, demo, cotações, regressão
+├── docs/                  # arquitetura, auditoria, decisões, modo demo e cotações
+│
+├── .env.example
+├── requirements.txt
+└── requirements-dev.txt
 ```
 
 ## 1. `models/` — um espelho de leitura, não um schema nosso
@@ -128,7 +184,40 @@ horário do servidor (`emitidoEm`, com deslocamento medido no navegador).
 A forma do payload é contrato: os 13 endpoints JSON e o `dashboard:snapshot` entregam o mesmo
 objeto, e `tests/test_contracts.py` + `tests/test_demo.py` quebram se alguém renomear chave.
 
-## 5. Onde cada coisa é testada
+## 5. Rotas e tempo real
+
+| Rota                           | O que entrega                                  |
+| ------------------------------ | ---------------------------------------------- |
+| `/`                            | painel 16:9                                    |
+| `/showcase`                    | referência visual antiga (estática, sem dados) |
+| `/<indicador>/<opt>/<gr>`      | os 13 endpoints JSON de indicador              |
+| `/actions/cotacoes/`           | faixa de cotações lida do cache                |
+| `/actions/value/`              | valor do primeiro ativo (contrato antigo)      |
+
+| Evento                | Direção             | Conteúdo                                                |
+| --------------------- | ------------------- | ------------------------------------------------------- |
+| `dashboard:snapshot`  | servidor → cliente  | painel completo do recorte, para quem acabou de conectar |
+| `dashboard:update`    | servidor → clientes | só o que mudou desde a rodada anterior                  |
+| `dashboard:status`    | servidor → clientes | fonte do ciclo, degradação, falhas consecutivas, horário |
+| `dashboard:solicitar` | cliente → servidor  | pede o snapshot de novo (usado no carregamento)         |
+
+Sem o socket, a tela cai em "modo consulta" e se remonta pelas rotas HTTP; se o Socket.IO
+desistir de reconectar por cinco minutos, a TV recarrega a página.
+
+## 6. Boot: ordem de import e workers
+
+`monkey.patch_all()` é a primeira linha de `app.py`, antes de qualquer import que faça I/O.
+Importar `urllib3` antes do patch produz `RecursionError` em requisição HTTPS — inclusive a de
+cotação. Quem sobe a aplicação por outro servidor WSGI tem de manter essa ordem.
+
+Os ciclos rodam no mesmo processo do servidor: vários workers multiplicariam os ciclos e as
+cotações, que têm cota mensal na brapi.dev. Em produção com gestor de processos, um worker com
+gevent, ou o ciclo em processo próprio.
+
+O CORS é o herdado do projeto original (`CORS(app, allow_headers=["*"])`); a exposição que ele
+cria está em [`../SECURITY.md`](../SECURITY.md).
+
+## 7. Onde cada coisa é testada
 
 | Arquivo | Assunto |
 | ------- | ------- |

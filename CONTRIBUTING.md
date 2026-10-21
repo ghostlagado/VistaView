@@ -7,7 +7,7 @@ ninguém vai inspecionar o DOM.
 ## Antes de mexer
 
 1. Leia [`docs/arquitetura.md`](docs/arquitetura.md) — ela diz onde cada responsabilidade
-   mora e por quê.
+   mora, como a árvore de diretórios está organizada e por quê.
 2. Leia os seis critérios de [`docs/auditoria-e-baseline.md`](docs/auditoria-e-baseline.md).
    Cada um tem teste em `tests/test_regressao.py`; quebrar um é decisão consciente, não
    efeito colateral.
@@ -29,7 +29,8 @@ python -m services.semente        # popula o espelho SQLite local
 python app.py                     # http://localhost:8092
 ```
 
-Três modos, e eles não se misturam:
+Três modos, e eles não se misturam (a tabela completa de variáveis está em
+[`docs/configuracao.md`](docs/configuracao.md)):
 
 | Modo | Como | Fonte dos indicadores | Cotações |
 | ---- | ---- | --------------------- | -------- |

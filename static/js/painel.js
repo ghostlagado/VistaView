@@ -9,13 +9,18 @@
 (function () {
     const $ = function (id) { return document.getElementById(id); };
 
+    // Mesma escada de cor do painel.css: o gráfico não pode ter paleta própria.
     const CORES = {
-        verde: '#57c785',
-        vermelho: '#e5484d',
-        ambar: '#f0a92c',
-        azul: '#3d9be9',
-        suave: '#9fb0c1',
-        grade: '#2a3745',
+        verde: '#3ecf8e',
+        vermelho: '#f0555f',
+        ambar: '#e7b04a',
+        azul: '#4fa3f7',
+        marca: '#14b8a6',
+        texto: '#e9f1fa',
+        suave: '#94a8bc',
+        mudo: '#62778d',
+        grade: 'rgba(226,238,250,.07)',
+        superficie: '#131c26',
     };
 
     // Chave do payload -> id do cartão na página.
@@ -48,6 +53,29 @@
         return Number(valor).toLocaleString('pt-BR');
     }
 
+    /* Gap é desvio, e desvio sem sinal lê-se como grandeza. O número continua o mesmo do
+     * payload; só o sinal aparece na tela. */
+    function numeroAssinado(valor) {
+        const n = Number(valor);
+        if (Number.isNaN(n) || valor === null || valor === undefined) return '—';
+        return (n > 0 ? '+' : n < 0 ? '-' : '') + numero(Math.abs(n));
+    }
+
+    function percentualDe(parte, todo) {
+        if (!Number(todo)) return null;
+        return Math.round((Number(parte || 0) * 100) / Number(todo));
+    }
+
+    /* Preço de ação tem moeda e duas casas — o número cru do provedor não diz R$ nem
+     * centavo. String já vem formatada de `/actions/value/`, e passa como está. */
+    function formatarPreco(preco) {
+        if (preco === null || preco === undefined || preco === '') return '—';
+        if (typeof preco === 'string') return preco;
+        const n = Number(preco);
+        if (Number.isNaN(n)) return '—';
+        return 'R$ ' + n.toFixed(2).replace('.', ',');
+    }
+
     function nomeCurto(nome) {
         const partes = String(nome || '').trim().split(/\s+/);
         if (partes.length < 2) return nome || '—';
@@ -60,11 +88,32 @@
         return regra || 'neutro';
     }
 
-    function pintarKpi(chave, id, valor) {
+    /* A nota responde o que o número sozinho deixa no ar. Tudo sai de cifra que já está
+     * no payload — nenhuma conta nova, nenhum dado que o servidor não mandou. */
+    function notaDe(chave, p) {
+        const metaMes = Number(p.metaMes || 0);
+        const metaDia = Number(p.metaDia || 0);
+        switch (chave) {
+            case 'totalMes': return metaMes ? percentualDe(p.totalMes, metaMes) + '% da meta' : '';
+            case 'totalDia': return metaDia ? percentualDe(p.totalDia, metaDia) + '% da meta de hoje' : '';
+            case 'visitasMes': return p.totalMes ? percentualDe(p.visitasMes, p.totalMes) + '% das tarefas' : '';
+            case 'visitasDia': return p.totalDia ? percentualDe(p.visitasDia, p.totalDia) + '% das tarefas' : '';
+            case 'metaMes': return p.mesAnterior != null ? 'mês anterior ' + numero(p.mesAnterior) : '';
+            case 'metaDia': return metaMes ? 'meta do mês ' + numero(metaMes) : '';
+            case 'gapMes': return metaMes ? 'contra a meta ' + numero(metaMes) : '';
+            case 'gapDia': return metaDia ? 'contra a meta ' + numero(metaDia) : '';
+            case 'escalonadas': return p.totalMes ? percentualDe(p.escalonadas, p.totalMes) + '% do total do mês' : '';
+            default: return '';
+        }
+    }
+
+    function pintarKpi(chave, id, valor, painel) {
         const cartao = $(id);
         if (!cartao) return;
         const alvo = cartao.querySelector('.kpi__valor') || cartao;
-        alvo.textContent = numero(valor);
+        alvo.textContent = chave.startsWith('gap') ? numeroAssinado(valor) : numero(valor);
+        const nota = cartao.querySelector('.kpi__nota');
+        if (nota) nota.textContent = notaDe(chave, painel || {});
         cartao.classList.remove('kpi--ok', 'kpi--erro', 'kpi--neutro', 'kpi--info');
         cartao.classList.add('kpi--' + classeSemantica(chave, valor));
     }
@@ -85,9 +134,13 @@
             return;
         }
 
+        // A barra é relativa ao maior valor da própria lista: o que se quer ler é a
+        // distância entre os primeiros, não a distância até um teto arbitrário.
+        const maior = Math.max.apply(null, totais.map(Number).concat([1]));
+
         nomes.forEach(function (nome, i) {
             const li = document.createElement('li');
-            li.className = 'lista__item';
+            li.className = 'lista__item' + (i === 0 ? ' lista__item--primeiro' : '');
 
             const posicao = document.createElement('span');
             posicao.className = 'lista__posicao';
@@ -96,12 +149,17 @@
             const rotulo = document.createElement('span');
             rotulo.className = 'lista__nome';
             rotulo.textContent = abreviar ? nomeCurto(nome) : (nome || '—');
+            rotulo.title = nome || '';
 
             const valor = document.createElement('span');
             valor.className = 'lista__valor';
             valor.textContent = numero(totais[i]);
 
-            li.append(posicao, rotulo, valor);
+            const barra = document.createElement('span');
+            barra.className = 'lista__barra';
+            barra.style.width = Math.round((Number(totais[i]) || 0) * 100 / maior) + '%';
+
+            li.append(posicao, rotulo, valor, barra);
             ul.appendChild(li);
         });
     }
@@ -121,8 +179,18 @@
         itens.forEach(function (item) {
             const chip = document.createElement('span');
             chip.className = 'rodape__item';
-            chip.textContent = item.nome + ' ' + item.total;
-            cifras.push(chip);
+
+            const nome = document.createElement('span');
+            nome.className = 'rodape__nome';
+            nome.textContent = item.nome;
+
+            // A cifra em destaque, o nome em suporte: na faixa é o número que se persegue.
+            const total = document.createElement('span');
+            total.className = 'rodape__total';
+            total.textContent = item.total;
+
+            chip.append(nome, total);
+            cifras.push(total);
             grupo.appendChild(chip);
         });
         return { elemento: grupo, cifras: cifras };
@@ -214,8 +282,8 @@
             faixaEstado.grupos.push(primeiro);
         } else {
             faixaEstado.grupos.forEach(function (grupo) {
-                grupo.cifras.forEach(function (chip, i) {
-                    chip.textContent = itens[i].nome + ' ' + itens[i].total;
+                grupo.cifras.forEach(function (cifra, i) {
+                    cifra.textContent = itens[i].total;
                 });
             });
         }
@@ -226,43 +294,109 @@
     let graficoDias = null;
     let graficoDesempenho = null;
 
+    /* Um tooltip só para os dois gráficos: superfície elevada, borda de um pixel, número
+     * em tabular — a mesma linguagem dos cartões. */
+    const TOOLTIP = {
+        backgroundColor: CORES.superficie,
+        borderColor: 'rgba(226,238,250,.14)',
+        borderWidth: 1,
+        titleColor: CORES.texto,
+        bodyColor: CORES.suave,
+        padding: 10,
+        cornerRadius: 8,
+        usePointStyle: true,
+        boxWidth: 8,
+        boxHeight: 8,
+        boxPadding: 4,
+        callbacks: {
+            label: function (item) {
+                const rotulo = item.dataset.label ? item.dataset.label + ': ' : '';
+                const valor = typeof item.parsed === 'object' ? item.parsed.y : item.parsed;
+                return '  ' + rotulo + numero(valor);
+            },
+        },
+    };
+
+    /* Verde é prazo cumprido, vermelho é atraso: as outras cores do painel não comunicam
+     * estado. O rótulo chega do banco em caixa alta e a tela o apresenta em caixa de frase. */
+    function corDePrazo(rotulo) {
+        const t = String(rotulo || '').trim().toUpperCase();
+        return t.indexOf('NO PRAZO') === 0 ? CORES.verde : CORES.vermelho;
+    }
+
+    function caixaDeFrase(rotulo) {
+        const t = String(rotulo || '').trim().toLowerCase();
+        return t ? t.charAt(0).toUpperCase() + t.slice(1) : '—';
+    }
+
     function criarGraficos() {
         if (typeof Chart === 'undefined') return;
         Chart.defaults.color = CORES.suave;
         Chart.defaults.borderColor = CORES.grade;
+        Chart.defaults.font.family = 'Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
         Chart.defaults.font.size = 13;
         Chart.defaults.animation = false;
 
         const dias = $('grafDias');
         if (dias) {
+            // A área do mês atual desce a zero: sem ela as duas linhas se cruzam e a de
+            // trás some, que é justamente o que se quer comparar.
+            const area = dias.getContext('2d').createLinearGradient(0, 0, 0, dias.clientHeight || 400);
+            area.addColorStop(0, 'rgba(79,163,247,.26)');
+            area.addColorStop(1, 'rgba(79,163,247,0)');
+
             graficoDias = new Chart(dias, {
                 type: 'line',
                 data: {
                     labels: [],
                     datasets: [
-                        { label: 'Mês anterior', data: [], borderColor: CORES.vermelho, borderWidth: 1, fill: false, pointRadius: 0 },
-                        { label: 'Mês atual', data: [], borderColor: CORES.verde, borderWidth: 2, fill: { target: 'origin' }, backgroundColor: 'rgba(87,199,133,.12)', pointRadius: 0 },
+                        { label: 'Mês anterior', data: [], borderColor: CORES.mudo, borderWidth: 1.5,
+                          borderDash: [5, 4], tension: .35, pointRadius: 0, pointHoverRadius: 3, fill: false },
+                        { label: 'Mês atual', data: [], borderColor: CORES.azul, borderWidth: 2.5,
+                          tension: .35, pointRadius: 0, pointHoverRadius: 4, pointBackgroundColor: CORES.azul,
+                          pointBorderColor: CORES.superficie, pointBorderWidth: 2, fill: true, backgroundColor: area },
                     ],
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { boxWidth: 12 } } },
-                    scales: { x: { title: { display: true, text: 'Dia do mês' } }, y: { beginAtZero: true } },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top', align: 'end',
+                            labels: { usePointStyle: false, boxWidth: 18, boxHeight: 2,
+                                      padding: 18, color: CORES.suave },
+                        },
+                        tooltip: TOOLTIP,
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }, border: { color: CORES.grade },
+                            ticks: { color: CORES.mudo, maxRotation: 0, autoSkipPadding: 10 },
+                            title: { display: true, text: 'Dia do mês', color: CORES.mudo, font: { size: 11 } },
+                        },
+                        y: {
+                            beginAtZero: true, grid: { color: CORES.grade, drawTicks: false },
+                            border: { display: false },
+                            ticks: { color: CORES.mudo, padding: 8, precision: 0, maxTicksLimit: 7 },
+                        },
+                    },
                 },
             });
         }
 
         const desempenho = $('grafDesempenho');
         if (desempenho) {
+            // Sem rótulo dentro do anel: o total mora no furo (`.desc__centro`), e a
+            // legenda ao lado carrega valor e percentual.
             graficoDesempenho = new Chart(desempenho, {
                 type: 'doughnut',
-                data: { labels: [], datasets: [{ data: [], borderWidth: 1, borderColor: CORES.grade, backgroundColor: [CORES.vermelho, CORES.verde] }] },
+                data: { labels: [], datasets: [{ data: [], borderWidth: 0, spacing: 2, backgroundColor: [] }] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '62%',
-                    plugins: { legend: { display: false } },
+                    cutout: '74%',
+                    plugins: { legend: { display: false }, tooltip: TOOLTIP },
                 },
             });
         }
@@ -277,37 +411,65 @@
     }
 
     function pintarDesempenho(perf) {
-        const total = ((perf && perf.total) || []).reduce(function (a, b) { return a + Number(b || 0); }, 0);
+        const rotulos = (perf && perf.st) || [];
+        const valores = (perf && perf.total) || [];
+        const total = valores.reduce(function (a, b) { return a + Number(b || 0); }, 0);
         const legenda = $('descLegenda');
 
         if (graficoDesempenho) {
-            graficoDesempenho.data.labels = (perf && perf.st) || [];
-            graficoDesempenho.data.datasets[0].data = (perf && perf.total) || [];
+            graficoDesempenho.data.labels = rotulos;
+            graficoDesempenho.data.datasets[0].data = valores;
+            graficoDesempenho.data.datasets[0].backgroundColor = rotulos.map(corDePrazo);
             graficoDesempenho.update('none');
         }
+
+        const centro = $('descTotal');
+        if (centro) centro.textContent = total ? numero(total) : '—';
+
         if (!legenda) return;
         legenda.textContent = '';
 
-        ((perf && perf.st) || []).forEach(function (rotulo, i) {
-            const valor = Number((perf.total || [])[i] || 0);
-            const percentual = total ? ((valor * 100) / total).toFixed(1) : '0.0';
+        rotulos.forEach(function (rotulo, i) {
+            const valor = Number(valores[i] || 0);
             const linha = document.createElement('div');
             linha.className = 'desc__linha';
 
+            const ponto = document.createElement('span');
+            ponto.className = 'desc__ponto';
+            ponto.style.color = corDePrazo(rotulo);
+
             const nome = document.createElement('span');
-            nome.textContent = rotulo;
-            nome.style.color = rotulo === 'NO PRAZO' ? CORES.verde : CORES.vermelho;
+            nome.className = 'desc__titulo';
+            nome.textContent = caixaDeFrase(rotulo);
 
             const cifra = document.createElement('span');
-            cifra.textContent = numero(valor) + ' · ' + percentual + '%';
+            cifra.className = 'desc__cifra';
+            cifra.textContent = numero(valor) + ' · ' + (total ? ((valor * 100) / total).toFixed(1) : '0.0') + '%';
 
-            linha.append(nome, cifra);
+            linha.append(ponto, nome, cifra);
             legenda.appendChild(linha);
         });
     }
 
     // ---------------------------------------------------------------- cotações
     // Fase 7 alimenta esta lista; enquanto não há provedor, o cartão fica discreto.
+    function peCotacoes(lista) {
+        const pe = document.createElement('div');
+        pe.className = 'cotacoes__pe';
+        const comPreco = lista.filter(function (c) { return !c.indisponivel; });
+        const parte = [];
+        if (lista[0] && lista[0].provedor) parte.push(lista[0].provedor);
+        parte.push(comPreco.length + '/' + lista.length + ' ativos');
+        if (lista[0] && lista[0].buscadoEm) {
+            const d = new Date(lista[0].buscadoEm);
+            if (!Number.isNaN(d.getTime())) {
+                parte.push('coletado ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+            }
+        }
+        pe.textContent = parte.join(' · ');
+        return pe;
+    }
+
     function pintarCotacoes(lista) {
         const alvo = $('listaCotacoes');
         if (!alvo) return;
@@ -336,11 +498,12 @@
 
             const preco = document.createElement('span');
             preco.className = 'cotacao__preco';
-            preco.textContent = c.preco == null ? '—' : String(c.preco);
+            preco.textContent = formatarPreco(c.preco);
 
             const variacao = document.createElement('span');
             variacao.className = 'cotacao__var';
-            variacao.textContent = c.variacao == null ? '' : (c.variacao > 0 ? '+' : '') + c.variacao + '%';
+            variacao.textContent = c.variacao == null ? ''
+                : (c.variacao > 0 ? '+' : '') + Number(c.variacao).toFixed(2).replace('.', ',') + '%';
 
             const hora = document.createElement('span');
             hora.className = 'cotacao__hora';
@@ -349,6 +512,8 @@
             item.append(simbolo, preco, variacao, hora);
             alvo.appendChild(item);
         });
+
+        alvo.appendChild(peCotacoes(lista));
     }
 
     // O valor da ação já era mostrado (badge GGPS3) e vem de `/actions/value/`.
@@ -363,7 +528,7 @@
             // Na rota antiga `0` quer dizer "sem valor", não preço de centavo: sem cifra,
             // o cartão entra no estado indisponível, com traço.
             const valor = Number(preco);
-            pintarCotacoes(valor ? [{ simbolo: 'GGPS3', preco: 'R$ ' + valor.toFixed(2).replace('.', ','), variacao: null, atual: true }]
+            pintarCotacoes(valor ? [{ simbolo: 'GGPS3', preco: valor, variacao: null, atual: true }]
                                  : [{ simbolo: 'GGPS3', preco: null, variacao: null, indisponivel: true }]);
         } catch (e) {
             if (janelaPainel.cotacoes) return;
@@ -458,7 +623,7 @@
         janelaPainel = Object.assign({}, janelaPainel, p || {});
 
         Object.keys(KPIs).forEach(function (chave) {
-            if (chave in janelaPainel) pintarKpi(chave, KPIs[chave], janelaPainel[chave]);
+            if (chave in janelaPainel) pintarKpi(chave, KPIs[chave], janelaPainel[chave], janelaPainel);
         });
 
         if (p.top3Uni) {
