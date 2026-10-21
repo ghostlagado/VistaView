@@ -105,32 +105,120 @@
         });
     }
 
-    function pintarRodape(p) {
-        const rodape = $('rodapeUnidades');
-        if (!rodape) return;
-        const uni = (p.unidades && p.unidades.uni) || [];
-        const totais = (p.unidades && p.unidades.total) || [];
-        rodape.textContent = '';
+    // ---------------------------------------------------------------- faixa de unidades
+    /* Rodapé em movimento contínuo, sem a tag HTML antiga: um grupo de chips é repetido
+     * em cópias idênticas e o CSS transla meia largura do trilho — com número par de
+     * cópias, isso é exatamente um período, então não aparece emenda. Os números são
+     * trocados no lugar, porque reconstruir o trilho a cada ciclo devolveria a faixa ao
+     * início. */
+    let faixaEstado = null;
 
-        const rotulo = document.createElement('span');
-        rotulo.className = 'rodape__rotulo';
-        rotulo.textContent = 'Unidades';
-        rodape.appendChild(rotulo);
+    function montarGrupo(itens) {
+        const grupo = document.createElement('div');
+        grupo.className = 'faixa__grupo';
+        const cifras = [];
+        itens.forEach(function (item) {
+            const chip = document.createElement('span');
+            chip.className = 'rodape__item';
+            chip.textContent = item.nome + ' ' + item.total;
+            cifras.push(chip);
+            grupo.appendChild(chip);
+        });
+        return { elemento: grupo, cifras: cifras };
+    }
 
-        if (uni.length === 0) {
-            const vazio = document.createElement('span');
-            vazio.className = 'rodape__vazio';
-            vazio.textContent = 'sem unidades no recorte';
-            rodape.appendChild(vazio);
+    function faixaParada(trilho, mensagem) {
+        faixaEstado = null;
+        trilho.style.removeProperty('--duracao');
+        trilho.textContent = '';
+        const grupo = document.createElement('div');
+        grupo.className = 'faixa__grupo';
+        const vazio = document.createElement('span');
+        vazio.className = 'rodape__vazio';
+        vazio.textContent = mensagem;
+        grupo.appendChild(vazio);
+        trilho.appendChild(grupo);
+    }
+
+    function dimensionarFaixa(faixa, trilho) {
+        if (!faixaEstado) return;
+        const periodo = faixaEstado.grupos[0].elemento.offsetWidth;
+        const janela = faixa.clientWidth || document.documentElement.clientWidth;
+        if (!periodo || !janela) return;
+
+        const tudoVisivel = periodo <= janela;
+        // Cópias em par quando a faixa anda: é o que faz translateX(-50%) cair na
+        // borda de um período. Parada, uma cópia só basta.
+        let alvo;
+        if (tudoVisivel) {
+            alvo = 1;
+        } else {
+            alvo = Math.max(2, Math.ceil(janela / periodo) + 1);
+            if (alvo % 2) alvo += 1;
+        }
+
+        faixa.classList.toggle('faixa--parada', tudoVisivel);
+
+        const grupos = faixaEstado.grupos;
+        while (grupos.length < alvo) {
+            const copia = montarGrupo(faixaEstado.itens);
+            trilho.appendChild(copia.elemento);
+            grupos.push(copia);
+        }
+        while (grupos.length > alvo) {
+            trilho.removeChild(grupos.pop().elemento);
+        }
+
+        if (tudoVisivel) {
+            trilho.style.removeProperty('--duracao');
+            faixaEstado.duracao = null;
             return;
         }
 
-        uni.slice(0, 24).forEach(function (nome, i) {
-            const item = document.createElement('span');
-            item.className = 'rodape__item';
-            item.textContent = (nome || '—') + ' ' + numero(totais[i]);
-            rodape.appendChild(item);
+        // Velocidade em função da própria faixa: ela já escala com a tela, e medir a
+        // janela sairia zero numa aba em segundo plano.
+        const velocidade = Math.max(26, Math.round(janela * 0.03));
+        const duracao = (periodo * grupos.length / 2) / velocidade;
+        // Só mexe na duração se ela mudou de verdade: ajustar a cada ciclo faria o
+        // movimento saltar, porque a animação é medida em tempo, não em progresso.
+        const anterior = faixaEstado.duracao;
+        if (anterior === null || Math.abs(duracao - anterior) / anterior > 0.05) {
+            trilho.style.setProperty('--duracao', duracao.toFixed(2) + 's');
+            faixaEstado.duracao = duracao;
+        }
+    }
+
+    function pintarRodape(p) {
+        const faixa = $('faixaUnidades');
+        const trilho = faixa ? faixa.querySelector('.faixa__trilho') : null;
+        if (!trilho) return;
+
+        const nomes = (p.unidades && p.unidades.uni) || [];
+        const totais = (p.unidades && p.unidades.total) || [];
+        if (nomes.length === 0) {
+            faixaParada(trilho, 'sem unidades no recorte');
+            return;
+        }
+
+        const itens = nomes.slice(0, 60).map(function (nome, i) {
+            return { nome: nome || '—', total: numero(totais[i]) };
         });
+        const assinatura = itens.map(function (i) { return i.nome; }).join('|');
+
+        if (!faixaEstado || faixaEstado.assinatura !== assinatura) {
+            trilho.textContent = '';
+            faixaEstado = { assinatura: assinatura, itens: itens, grupos: [], duracao: null };
+            const primeiro = montarGrupo(itens);
+            trilho.appendChild(primeiro.elemento);
+            faixaEstado.grupos.push(primeiro);
+        } else {
+            faixaEstado.grupos.forEach(function (grupo) {
+                grupo.cifras.forEach(function (chip, i) {
+                    chip.textContent = itens[i].nome + ' ' + itens[i].total;
+                });
+            });
+        }
+        dimensionarFaixa(faixa, trilho);
     }
 
     // ---------------------------------------------------------------- gráficos
@@ -141,7 +229,7 @@
         if (typeof Chart === 'undefined') return;
         Chart.defaults.color = CORES.suave;
         Chart.defaults.borderColor = CORES.grade;
-        Chart.defaults.font.size = 14;
+        Chart.defaults.font.size = 13;
         Chart.defaults.animation = false;
 
         const dias = $('grafDias');
@@ -271,7 +359,11 @@
             if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
             const preco = await resposta.json();
             if (janelaPainel.cotacoes) return;
-            pintarCotacoes([{ simbolo: 'GGPS3', preco: 'R$ ' + numero(preco), variacao: null, atual: true }]);
+            // Na rota antiga `0` quer dizer "sem valor", não preço de centavo: sem cifra,
+            // o cartão entra no estado indisponível, com traço.
+            const valor = Number(preco);
+            pintarCotacoes(valor ? [{ simbolo: 'GGPS3', preco: 'R$ ' + valor.toFixed(2).replace('.', ','), variacao: null, atual: true }]
+                                 : [{ simbolo: 'GGPS3', preco: null, variacao: null, indisponivel: true }]);
         } catch (e) {
             if (janelaPainel.cotacoes) return;
             console.warn('[painel] cotação indisponível:', e);
@@ -280,72 +372,80 @@
     }
 
     // ---------------------------------------------------------------- estado
+    /* Uma tag só na barra: o que importa para quem olha de longe é se o painel está
+     * recebendo pelo socket. O estado vem da conexão real, não da disponibilidade da
+     * interface. A cor do ponto ainda avisa, sem texto extra, quando o ciclo do
+     * servidor está degradado. */
     const ESTADOS = {
-        iniciando: ['esperando conexão…', ''],
-        conectado: ['tempo real ativo', 'selo--ok'],
-        desconectado: ['sem conexão', 'selo--erro'],
-        reconectando: ['reconectando…', 'selo--alerta'],
-        indisponivel: ['modo consulta', 'selo--alerta'],
+        iniciando: ['Offline', 'selo--neutro'],
+        conectado: ['Online', 'selo--on'],
+        desconectado: ['Offline', 'selo--off'],
+        reconectando: ['Offline', 'selo--off selo--alerta'],
+        indisponivel: ['Offline', 'selo--off'],
     };
 
-    function pintarEstado(nome) {
+    let conexao = 'iniciando';
+    let cicloDegradado = false;
+
+    function pintarSeloConexao() {
         const selo = $('seloConexao');
         if (!selo) return;
-        const [texto, classe] = ESTADOS[nome] || [nome, ''];
+        const [texto, classe] = ESTADOS[conexao] || ESTADOS.desconectado;
+        const classes = ['selo', classe];
+        if (conexao === 'conectado' && cicloDegradado) classes.push('selo--degradado');
+        selo.className = classes.join(' ');
+        selo.dataset.conexao = conexao;
         selo.textContent = '';
+
         const ponto = document.createElement('span');
         ponto.className = 'selo__ponto';
         const rotulo = document.createElement('span');
         rotulo.textContent = texto;
         selo.append(ponto, rotulo);
-        selo.className = 'selo' + (classe ? ' ' + classe : '');
+    }
+
+    function pintarEstado(nome) {
+        conexao = nome in ESTADOS ? nome : 'desconectado';
+        pintarSeloConexao();
     }
 
     function pintarStatus(st) {
-        const selo = $('seloQualidade');
-        if (selo) {
-            selo.textContent = '';
-            const ponto = document.createElement('span');
-            ponto.className = 'selo__ponto';
-            const rotulo = document.createElement('span');
-            if (st && st.degradado) {
-                rotulo.textContent = 'dados desatualizados (' + (st.falhasConsecutivas || 0) + ')';
-                selo.className = 'selo selo--erro';
-            } else {
-                rotulo.textContent = 'dados no ar';
-                selo.className = 'selo selo--ok';
-            }
-            selo.append(ponto, rotulo);
-        }
+        cicloDegradado = !!(st && st.degradado);
+        sincronizarRelogio(st && st.emitidoEm);
+        pintarSeloConexao();
     }
 
-    function atualizadoHá(iso) {
-        // `atualizadoEm` sai do servidor sem fuso: TV e servidor estão no mesmo horário.
-        if (!iso) return '—';
-        const instante = Date.parse(String(iso).replace(' ', 'T'));
-        if (Number.isNaN(instante)) return '—';
-        const segundos = Math.max(0, Math.round((Date.now() - instante) / 1000));
-        if (segundos < 60) return 'atualizado há ' + segundos + 's';
-        const minutos = Math.round(segundos / 60);
-        if (minutos < 60) return 'atualizado há ' + minutos + 'min';
-        return 'atualizado há ' + Math.round(minutos / 60) + 'h';
+    // ---------------------------------------------------------------- relógio
+    /* Referência é o relógio do servidor: cada evento de status traz o instante em que
+     * foi emitido e a página guarda apenas o deslocamento entre os dois relógios. Entre
+     * um evento e outro a tela anda sozinha — nenhuma requisição a mais por segundos. */
+    let deslocamentoMs = 0;
+
+    function sincronizarRelogio(instante) {
+        if (!instante) return;
+        const ms = Date.parse(String(instante).replace(' ', 'T'));
+        if (Number.isNaN(ms)) return;
+        deslocamentoMs = ms - Date.now();
     }
 
     function iniciarRelogio() {
         const relogio = $('relogio');
         const data = $('dataCabecalho');
         function tick() {
-            const agora = new Date();
-            if (relogio) relogio.textContent = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            if (data) data.textContent = agora.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'long' });
-            const marca = $('seloAtualizacao');
-            if (marca && janelaPainel.atualizadoEm) {
-                const alvo = marca.querySelector('.selo__rotulo') || marca;
-                alvo.textContent = atualizadoHá(janelaPainel.atualizadoEm);
+            const agora = new Date(Date.now() + deslocamentoMs);
+            if (relogio) {
+                relogio.textContent = agora.toLocaleTimeString('pt-BR', {
+                    hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
+                });
+            }
+            if (data) {
+                data.textContent = agora.toLocaleDateString('pt-BR', {
+                    weekday: 'short', day: '2-digit', month: 'long',
+                });
             }
         }
         tick();
-        setInterval(tick, 15000);
+        setInterval(tick, 1000);
     }
 
     // ---------------------------------------------------------------- pintura
@@ -375,12 +475,6 @@
         if (p.dias || p.diasAnt) pintarGraficoDias(p.dias, p.diasAnt);
         if (p.unidades) pintarRodape(p);
         if (p.cotacoes) pintarCotacoes(p.cotacoes);
-
-        const marca = $('seloAtualizacao');
-        if (marca && janelaPainel.atualizadoEm) {
-            const alvo = marca.querySelector('.selo__rotulo') || marca;
-            alvo.textContent = atualizadoHá(janelaPainel.atualizadoEm);
-        }
     }
 
     // ---------------------------------------------------------------- HTTP
@@ -403,9 +497,17 @@
         diasAnt: '/graph_days_ant/',
     };
 
+    /* O cabeçalho HTTP já traz a hora do servidor em toda resposta que a página faz por
+     * outro motivo: sem socket, é por ela que o relógio se alinha. Precisão de um
+     * segundo é mais que suficiente para um painel visto de longe. */
+    function alinharPeloCabecalho(resposta) {
+        sincronizarRelogio(resposta.headers.get('Date'));
+    }
+
     async function porRota(chave) {
         const resposta = await fetch(ROTAS[chave] + encodeURIComponent(painelOpt) + '/' + encodeURIComponent(painelGr));
         if (!resposta.ok) throw new Error(chave + ': HTTP ' + resposta.status);
+        alinharPeloCabecalho(resposta);
         return resposta.json();
     }
 
@@ -414,6 +516,7 @@
     async function porCotacoes() {
         const resposta = await fetch('/actions/cotacoes/');
         if (!resposta.ok) throw new Error('cotações: HTTP ' + resposta.status);
+        alinharPeloCabecalho(resposta);
         return resposta.json();
     }
 
@@ -429,16 +532,8 @@
                 ul.appendChild(vazio);
             }
         });
-        const rodape = $('rodapeUnidades');
-        if (rodape && !rodape.children.length) {
-            const rotulo = document.createElement('span');
-            rotulo.className = 'rodape__rotulo';
-            rotulo.textContent = 'Unidades';
-            const vazio = document.createElement('span');
-            vazio.className = 'rodape__vazio';
-            vazio.textContent = 'sem dados no momento';
-            rodape.append(rotulo, vazio);
-        }
+        const trilho = document.querySelector('#faixaUnidades .faixa__trilho');
+        if (trilho && !faixaEstado) faixaParada(trilho, 'sem dados no momento');
     }
 
     async function recarregarPorHttp() {
@@ -509,6 +604,16 @@
     setTimeout(function () {
         if (!recebeuDados) recarregarPorHttp();
     }, 8000);
+
+    // Troca de resolução na TV (ou janela em modo desenvolvimento) redimensiona a faixa.
+    let ajuste = null;
+    window.addEventListener('resize', function () {
+        clearTimeout(ajuste);
+        ajuste = setTimeout(function () {
+            const faixa = $('faixaUnidades');
+            if (faixa && faixaEstado) dimensionarFaixa(faixa, faixa.querySelector('.faixa__trilho'));
+        }, 300);
+    });
 
     window.VistaPainel = { pintar: pintar, recarregarPorHttp: recarregarPorHttp };
 })();
