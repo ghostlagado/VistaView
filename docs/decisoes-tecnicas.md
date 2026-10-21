@@ -280,7 +280,11 @@ disso — cinco ativos cabem em 720p, um ativo não deixa buraco na tela.
 
 | Arquivo | Responde a |
 | --- | --- |
-| `README.md` | o que o painel é hoje, como configurar e como rodar |
+| `README.md` | o que o painel é, como rodar em três comandos e onde achar o resto |
+| `docs/configuracao.md` | cada variável de ambiente, os três modos e os bancos suportados |
+| `docs/arquitetura.md` | camadas, modelos, portabilidade de dialeto, rotas e eventos |
+| `CONTRIBUTING.md` | ambiente, convenções de código, regras de teste e de PR |
+| `SECURITY.md` | itens sensíveis, proteções, superfície exposta e canal de reporte |
 | `docs/auditoria-e-baseline.md` | o que o código era antes, o que estava quebrado, o que virou o quê |
 | `docs/decisoes-tecnicas.md` | por que cada alternativa foi escolhida e o que foi rejeitado |
 | `docs/modo-demo.md` | demonstração, isolamento e auditoria do Showcase |
@@ -288,7 +292,10 @@ disso — cinco ativos cabem em 720p, um ativo não deixa buraco na tela.
 
 O README antigo descrevia `app.config["SQLALCHEMY_DATABASE_URI"] = getenv("DB_URI")` e uma
 estrutura sem `services/`, `tests/` nem `docs/`. Isso não era mais verdade e foi reescrito na
-fonte, não corrigido com nota de rodapé.
+fonte, não corrigido com nota de rodapé. Na refatoração de 2026-10-21 ele encolheu de novo: a
+árvore de diretórios, a tabela de variáveis, o contrato de rotas/eventos e as notas de
+gevent/CORS saíram do README e passaram a ter um dono — `docs/arquitetura.md`,
+`docs/configuracao.md` e `SECURITY.md`.
 
 ### O que ficou aberto de propósito
 
