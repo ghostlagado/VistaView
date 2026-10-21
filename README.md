@@ -55,13 +55,13 @@ conexão não pegar, a mesma tela se remonta pelas requisições HTTP individuai
 | ------------------------------ | ---------------------------------------------- |
 | 🐍 **Python**                  | Linguagem principal                            |
 | 🌶️ **Flask**                  | Aplicação Web e os blueprints de rota          |
-| 🗃️ **SQLAlchemy**             | Consultas ao warehouse (`dw_vista`)            |
+| 🗃️ **SQLAlchemy 2 (ORM)**    | Modelos em `models/` e consultas portáveis entre SQL Server e SQLite |
 | 🟢 **Gevent**                  | Concorrência, ciclos em segundo plano          |
 | 🔌 **Flask-SocketIO**          | Snapshot e deltas em tempo real                |
 | 📊 **Chart.js**                | Gráfico de realizado por dia e de desempenho   |
 | 🌐 **Flask-CORS**              | Controle de requisições CORS                   |
 | 🔐 **python-dotenv**           | Configuração através de `.env`                 |
-| 🧪 **pytest**                  | 186 testes de contrato, cálculo e regressão    |
+| 🧪 **pytest**                  | 231 testes de contrato, cálculo, portabilidade e regressão |
 
 ---
 
@@ -73,6 +73,13 @@ VistaView/
 ├── app.py                 # app factory: configuração, fontes de dado e ciclos
 ├── wsgi.py                # entrada de produção (inicia e encerra os serviços)
 │
+├── models/                # espelho de leitura do warehouse, em ORM (só leitura)
+│   ├── base.py            #   ModeloBase + aplicar_esquema (o schema por banco)
+│   ├── tarefa.py          #   TAREFA: status, expirada, escalonada, checklist
+│   ├── recurso.py         #   RECURSO: quem fechou a tarefa
+│   ├── estrutura.py       #   DM_ESTRUTURA: a unidade e a ponte para a cadeia
+│   └── cr.py              #   DM_CR: a cadeia de comando, dona do recorte
+│
 ├── routes/                # camada HTTP: só valida o recorte e serializa
 │   ├── acoes.py           #   /actions/value/ e /actions/cotacoes/ (leem cache)
 │   ├── general.py         #   desempenho, rankings, unidades, gráficos
@@ -80,8 +87,9 @@ VistaView/
 │   └── visitas.py         #   visitas do mês e do dia
 │
 ├── services/              # regras de cálculo e processos em segundo plano
-│   ├── metricas.py        #   indicadores do warehouse (SQL da auditoria)
-│   ├── showcase.py        #   mesma interface, com dados sintéticos (modo demo)
+│   ├── metricas.py        #   IndicadoresWarehouse: as 13 folhas, em ORM
+│   ├── showcase.py        #   IndicadoresDemonstracao: as mesmas folhas, sintéticas
+│   ├── semente.py         #   popula o SQLite local (nunca o warehouse)
 │   ├── fonte.py           #   costura que escolhe a fonte por configuração
 │   ├── cotacoes.py        #   UM ciclo que consulta o provedor; todos leem o cache
 │   └── realtime.py        #   AtualizadorPainel, diff e handlers do Socket.IO
@@ -136,7 +144,8 @@ copy .env.example .env
 | `PORT`                   | Porta da aplicação                                                     | `8092`             |
 | `DEBUG`                  | Modo debug                                                             | `false`            |
 | `SECRET`                 | Chave de sessão do Flask                                               | no demo é gerada; fora do demo, obrigatória |
-| `DB_URI`                 | URI SQLAlchemy do `dw_vista`                                           | — (obrigatória fora do demo) |
+| `DB_URI`                 | URI SQLAlchemy do banco. **Opcional**: sem ela o painel lê do espelho SQLite local | `instance/dw_vista_local.sqlite3` |
+| `VISTA_ESQUEMA`          | Prefixo das tabelas de estrutura no SQL Server       | `dw_vista.dbo` quando a URI é `mssql` |
 | `DEFAULT_OPT`            | Recorte padrão: `GER`, `GR` ou `DIR`                                   | `GR`               |
 | `DEFAULT_GR`             | Regional exibida por padrão                                            | `Parana Interior`  |
 | `META_PERCENTUAL`        | Crescimento sobre o mês anterior usado no cálculo da meta             | `15`               |
@@ -146,6 +155,30 @@ copy .env.example .env
 | `COTACOES_SEGUNDOS`      | Ciclo que consulta o provedor (mínimo 60)                              | `300`              |
 | `COTACOES_VELHO_MIN`     | Idade a partir da qual a cotação aparece marcada como desatualizada    | `15`               |
 | `MODO_DEMO`              | Painel com dados sintéticos, sem banco e sem API externa               | `false`            |
+
+### Bancos suportados
+
+Os modelos são um espelho de leitura, e a mesma consulta compila para os dois bancos:
+
+| Banco         | Como ativar                          | O que muda                                                        |
+| ------------- | ------------------------------------ | ----------------------------------------------------------------- |
+| **SQLite**    | nada — é o padrão                    | arquivo local `instance/dw_vista_local.sqlite3`, sem servidor      |
+| **SQL Server**| `DB_URI=mssql+pyodbc://...`          | tabelas de estrutura em `dw_vista.dbo` e leitura com `WITH(NOLOCK)`|
+
+As diferenças de dialeto são feitas pelo SQLAlchemy — `TOP 1`/`LIMIT 1`,
+`DATEPART(month, …)`/`CAST(STRFTIME('%m', …) AS INTEGER)` — e o hint de leitura é aplicado
+só no SQL Server, onde ele existe. `tests/test_portabilidade.py` assina isso consulta por
+consulta.
+
+O SQLite é o caminho de desenvolvimento e de demonstração com dados reais; para ele existir
+conteúdo, popula-se o espelho com:
+
+```bash
+python -m services.semente            # cria o schema e insere os dados
+python -m services.semente --limpar   # refaz do zero
+```
+
+O comando **recusa** qualquer URI que não seja SQLite: o warehouse é lido, nunca escrito.
 
 ---
 
@@ -203,7 +236,11 @@ cp .env.example .env
 
 ## ▶️ Execução
 
+Sem `DB_URI` e sem `MODO_DEMO`, o painel lê do SQLite local. Se o arquivo ainda não existe
+ou está vazio, o boot avisa no log — é o caso de quem acabou de clonar:
+
 ```bash
+python -m services.semente    # popula instance/dw_vista_local.sqlite3
 python wsgi.py
 ```
 
@@ -231,23 +268,28 @@ Rotas:
 
 ## 🧩 Arquitetura
 
-Três camadas, com uma decisão explícita em cada uma:
+Uma camada por responsabilidade, com uma decisão explícita em cada uma:
 
-* **`routes/`** não calcula nada. Valida o recorte contra a whitelist `GER/GR/DIR`
-  (fora dela, 400 — nunca SQL interpolado) e serializa o que `services/` devolve.
-* **`services/`** guarda as regras e os ciclos, sem dependência de Flask. A fonte dos
+* **`models/`** é o espelho de leitura do warehouse: `Tarefa`, `Recurso`, `Estrutura` e `Cr`.
+  Nenhuma escreve — não há `ForeignKey` físico declarado, os relacionamentos são `viewonly`
+  e as chaves primárias existem só para o mapeamento identificador funcionar. É aqui que
+  moram os nomes físicos das colunas (`NOME`, `TerminoReal`, `CODIGOHASH`) e as regras de
+  status (`STATUS_CONCLUIDA = 85`, `STATUS_ABERTAS = (25, 10, 70)`).
+* **`services/metricas.py`** (`IndicadoresWarehouse`) monta as 13 consultas a partir dos
+  modelos. Não há uma linha de SQL em texto: o recorte vira a coluna mapeada escolhida por
+  `Cr.coluna_do_recorte`, e um valor fora da whitelist `GER/GR/DIR` não produz string
+  nenhuma para interpolar.
+* **`routes/`** não calcula nada. Valida o recorte (fora da whitelist, 400) e serializa o
+  que os serviços devolvem.
+* **`services/`** também guarda os ciclos, sem dependência de Flask. A fonte dos
   indicadores é escolhida uma vez, em `create_app` (`app.config["VISTA_FONTE"]`), e é a
   mesma para as rotas e para o tempo real — por isso um dado sintético nunca vaza para uma
   consulta real, nem o contrário.
 * **`utils/config.py`** é o único ponto que lê variáveis de ambiente.
 
-O acesso ao banco usa SQLAlchemy com o SQL original da auditoria (incluindo os hints
-`NOLOCK`), inicializado a partir de `DB_URI`:
-
-```python
-app.config["SQLALCHEMY_DATABASE_URI"] = settings.db_uri
-db.init_app(app)
-```
+O `WITH(NOLOCK)` do SQL original continua existindo, como hint restrito ao dialeto
+`mssql` (`services/metricas.py::_com_hint`): no SQLite ele seria sintaxe inválida, e no
+SQL Server continua significando "leitura que não espera lock".
 
 ---
 
@@ -297,12 +339,14 @@ escolha, com os números medidos, está em [`docs/cotacoes.md`](docs/cotacoes.md
 python -m pytest -q
 ```
 
-186 testes, sem nenhuma saída de rede: as rotas são exercitadas com a camada de execução do
+231 testes, sem nenhuma saída de rede: as rotas são exercitadas com a camada de execução do
 SQLAlchemy interceptada e o provedor de cotações, com uma sessão HTTP falsa. Cobrem o
-contrato de cada rota (path, método e forma de resposta), os filtros de negócio, as janelas
-de data, o diff do tempo real, o isolamento do modo demo, os limites e o backoff das
-cotações, o layout do painel (faixa contínua, selo único, relógio com segundos, números
-−2px, sem rolagem) e os seis critérios de aceitação anti-regressão de
+contrato de cada rota (path, método e forma de resposta), os filtros de negócio na consulta
+compilada, as janelas de data, a **portabilidade** (cada uma das 13 folhas compilada para SQL
+Server e SQLite, e o painel inteiro executado contra um SQLite semeado), o diff do tempo
+real, o isolamento do modo demo, os limites e o backoff das cotações, o layout do painel
+(faixa contínua, selo único, relógio com segundos, números −2px, sem rolagem) e os seis
+critérios de aceitação anti-regressão de
 [`docs/auditoria-e-baseline.md`](docs/auditoria-e-baseline.md).
 
 ---
@@ -311,6 +355,9 @@ cotações, o layout do painel (faixa contínua, selo único, relógio com segun
 
 | Arquivo                                     | Conteúdo                                        |
 | ------------------------------------------- | ----------------------------------------------- |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)         | como rodar, testar e propor mudança neste código |
+| [`SECURITY.md`](SECURITY.md)                 | o que é sensível, como reportar e o modelo de ameaça |
+| [`docs/arquitetura.md`](docs/arquitetura.md) | modelos, fontes de dado e as trocas de dialeto   |
 | [`docs/auditoria-e-baseline.md`](docs/auditoria-e-baseline.md) | o que o código era antes, com os problemas encontrados e a baseline de testes |
 | [`docs/decisoes-tecnicas.md`](docs/decisoes-tecnicas.md)       | por que cada decisão foi tomada, fase a fase    |
 | [`docs/modo-demo.md`](docs/modo-demo.md)                       | demonstração, isolamento e auditoria do Showcase |
@@ -348,20 +395,10 @@ HTTPS, inclusive as de cotação.
 
 ## 🔐 Segurança
 
-Não versione informações sensíveis no repositório.
+Resumo: `.env` nunca vai para o repositório (só `.env.example` é versionado), o token da
+brapi é lido apenas no processo do servidor e não aparece em resposta HTTP nem em log de
+erro, o recorte `GER/GR/DIR` é uma whitelist que devolve coluna mapeada — não texto — e o
+modo demonstração não alcança o banco nem o provedor. Cada uma dessas garantias tem teste.
 
-O arquivo:
-
-```text
-.env
-```
-
-deve permanecer fora do controle de versão. Utilize:
-
-```text
-.env.example
-```
-
-para documentar as variáveis necessárias sem expor credenciais. O token da brapi vai em
-`ACTION_API`, é lido só no processo do servidor e não aparece em resposta HTTP nem em log de
-erro — há teste cobrindo isso.
+O modelo de ameaça, a lista do que é sensível e como reportar uma vulnerabilidade estão em
+[`SECURITY.md`](SECURITY.md).

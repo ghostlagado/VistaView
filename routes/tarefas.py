@@ -11,7 +11,7 @@ tarefas_bp = Blueprint("Tarefas", __name__)
 def escalonadas(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify({'total': fonte.escalonadas(campo, gr)}), 200
 
@@ -22,7 +22,7 @@ def escalonadas(opt, gr):
 def totalTarefas(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.tarefas_total(campo, gr)), 200
 
@@ -33,7 +33,7 @@ def totalTarefas(opt, gr):
 def tarefasMesAnt(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.tarefas_mes_anterior(campo, gr)), 200
 
@@ -44,6 +44,6 @@ def tarefasMesAnt(opt, gr):
 def tarefasDia(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.tarefas_dia(campo, gr)), 200

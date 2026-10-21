@@ -146,7 +146,7 @@ itens eles preenchem o cartão, com oito eles encolhem em vez de transbordar.
 ### Onde a tela desenha
 
 `static/js/painel.js` é o único renderizador. Ele assina `VistaTempoReal` e conhece a forma de
-`services.metricas.painel()`; se o socket não existir, remonta o mesmo objeto chamando as
+o painel agregado por `montar_painel()` (na refactorização ORM de 2026-10-21, `fonte.painel()`); se o socket não existir, remonta o mesmo objeto chamando as
 rotas HTTP uma a uma. Os dois caminhos são cobertos por um teste que compara o mapa de rotas
 da página com as chaves que o servidor devolve — se um campo nascer só de um lado, a TV
 mostraria números diferentes conforme a conexão.
@@ -436,3 +436,111 @@ dependem de produção ou de uso por terceiros, e nenhuma trava o uso atual.
 - `python -m pytest -q` → **186 passed**, com três testes novos: o demo sem `SECRET` gera chave de
   64 caracteres e vale, a chave não se repete entre processos, e no modo real a ausência dela
   ainda falha.
+
+## Refactorização ORM e POO (2026-10-21)
+
+O pedido foi explícito, inclusive sobre o custo: deixar o código em ORM com classes de
+modelo e de serviço, **mesmo quebrando** o critério 2 da auditoria, e com o contrato de que a
+mesma base de modelos funcione em SQL Server e em SQLite — SQLite por padrão até a
+demonstração, SQL Server só quando `DB_URI` aparecer no ambiente.
+
+### O modelo é espelho de leitura, não schema nosso
+
+`TAREFA`, `RECURSO`, `DM_ESTRUTURA` e `DM_CR` pertencem a outro time. Quatro consequências:
+
+- o nome físico da coluna vai no primeiro argumento de `mapped_column`, e o Python fica
+  `snake_case` — o SQL continua batendo com o da origem;
+- nenhum `ForeignKey` físico, e todo `relationship` é `viewonly` com `primaryjoin` explícito:
+  o vínculo é lógico no banco de origem, e o painel não escreve nada;
+- as chaves primárias existem só para o mapeamento identificador funcionar;
+- `Nivel_01`…`Nivel_05` não foram mapeadas. Copiar coluna que nenhuma consulta lê é
+  superfície de mudança a mais quando o DBA mexer na origem.
+
+### O recorte parou de ser texto
+
+Antes, `opts[opt]` era uma string (`cr.GerenteRegional`) interpolada no `WHERE`. Agora
+`Cr.coluna_do_recorte(opt)` devolve a **coluna mapeada**, ou `None`. Um recorte válido cuja
+coluna não existe no mapeamento levanta `LookupError` em vez de devolver `None`, porque
+viraria `WHERE 0 = 1` e a TV mostraria zeros calados.
+
+A pegadinha que disso resultou, e que agora está escrita em `CONTRIBUTING.md`:
+`ColumnOperators.__bool__` do SQLAlchemy levanta `NotImplementedError`. Testar coluna com
+`if not campo:` quebra em tempo de requisição; os 13 call sites de rota passaram a
+`if campo is None:`.
+
+### Uma família de classes para os dois bancos
+
+Duas alternativas foram consideradas e uma descartada:
+
+| Alternativa | Veredito |
+| --- | --- |
+| Duas famílias de modelos, uma por banco | descartada: duplicaria as regras de negócio, que é o que a auditoria congela |
+| `schema_translate_map` por dialeto no execute | possível, mas exige que toda execução passe por `execution_options`; fácil de esquecer numa folha nova |
+| `aplicar_esquema()` uma vez no `create_app` | **escolhida**: é decisão de processo, tomada no lugar onde o processo nasce |
+
+O ponto honesto é que `Table.schema` é atributo do mapeamento, não do dialeto: posto
+`dw_vista.dbo`, o **SQLite também o imprime**, e lá não existe schema cruzado — a consulta
+quebraria. Por isso o prefixo só é aplicado quando a URI é `mssql`, e `validar()` recusa a
+combinação `VISTA_ESQUEMA` + SQLite em vez de deixar o painel falhar mudo.
+
+O `WITH(NOLOCK)` do SQL original sobreviveu como o que ele é: hint restrito a dialeto
+(`with_hint(entidade, "WITH(NOLOCK)", "mssql")`), declarado uma vez em `_com_hint`. O que o
+SQLAlchemy troca sozinho entre os dois bancos é `TOP n`/`LIMIT`, `DATEPART`/`STRFTIME` e o
+nomeQuoteado das colunas — cada uma dessas trocas está assinada por teste em
+`test_portabilidade.py`.
+
+### SQLite como fonte padrão, com semente explícita
+
+Sem `DB_URI` e sem demo, a URI passa a ser `sqlite:///instance/dw_vista_local.sqlite3`
+(diretório que o Flask já reserva e o `.gitignore` já cobre). Três decisões de segurança
+desse caminho:
+
+- `db.create_all()` roda **só** para URI SQLite. Contra o warehouse seria um `CREATE TABLE`
+  num banco que este painel apenas lê.
+- `python -m services.semente` popula o espelho, com semente fixa (`20261021`) e janelas
+  ancoradas no dia da execução (mês anterior completo, mês corrente até hoje). Nada disso
+  acontece no boot: popular é decisão de quem desenvolve, e um painel que se auto-semeia
+  esconderia que está mostrando cifra inventada.
+- A semente **recusa** URI que não seja SQLite, com mensagem que diz por quê.
+
+O `validar()` também passou a conferir o driver da URI. `postgresql` chegou a estar na lista
+de aceitos e foi removido: a portabilidade foi compilada e executada para SQL Server e
+SQLite, e prometer um terceiro banco sem evidência seria exatamente o que este documento
+condena.
+
+### As duas fontes viraram objetos
+
+`IndicadoresWarehouse` e `IndicadoresDemonstracao` têm as mesmas 13 folhas, `painel()` e
+`coluna_de_filtro`. `app.config["VISTA_FONTE"]` passou a guardar uma instância, e o fallback
+do `AtualizadorPainel` — que antes fazia `from services.metricas import painel` — agora usa
+`app.config["VISTA_FONTE"].painel`, porque um import direto derrubaria o isolamento do modo
+demo. O atalho de módulo `services.metricas.painel()` foi removido em vez de virar
+compatibilidade: existe um caminho por painel, e é pela fonte.
+
+### O que a refactorização encontrou de comportamento herdado
+
+Ao reescrever `graph_days` para o SQLite semeado, apareceu uma assimetria que o SQL texto
+escondia: a série diária e o gráfico de performance **não** filtram por status, enquanto o
+número grande do painel filtra (`Status = 85`). A soma das barras é maior que `totalMes` de
+propósito — comportamento original, preservado, agora assinado por teste com a explicação
+escrita. Não foi corrigido porque corrigir mudaria o que a gerência já compara; se um dia
+mudar, é decisão de negócio e vai registrada aqui.
+
+### Validação real executada
+
+- As 13 folhas compiladas em processo limpo para `mssql` e `sqlite`, com os dois estados de
+  schema (`dw_vista.dbo` presente e ausente), conferindo `TOP`↔`LIMIT`,
+  `DATEPART`↔`STRFTIME` e `WITH(NOLOCK)` só no primeiro.
+- `python -m services.semente` criou e populou `instance/dw_vista_local.sqlite3`
+  (1.031 tarefas em duas janelas, 24 estruturas sobre dois recortes regionais, 12 unidades,
+  9 gerentes, 8 supervisores).
+- Painel real lido do SQLite, ao vivo: `totalMes=159`, `mesAnterior=190`, `escalonadas=24`,
+  12 unidades, top 3 coerente com o ranking, recorte inexistente devolvendo zero, `DIR` e
+  `GER` produzindo números diferentes entre si.
+- Servidor no ar em modo real (`PORT=8094`) com `/tarefas/total/GR/Parana Interior` → `159` e
+  `/` → `200`; o único aviso no log é o `401` esperado da brapi sem token.
+- `MODO_DEMO=true` continua subindo com uma linha só, agora com a fonte sintética como objeto
+  (`IndicadoresDemonstracao`) e `VISTA_COTACOES` inalterado.
+- `python -m pytest -q` → **231 passed** (186 antes da refactorização; +45 em
+  `test_portabilidade.py`, e as asserções acopladas ao texto cru reescritas em
+  `test_calculos.py`, `test_data_referencia.py`, `test_regressao.py` e `test_demo.py`).

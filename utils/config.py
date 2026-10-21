@@ -6,13 +6,24 @@ e continuam sendo constantes, não configuração de execução.
 """
 
 from dataclasses import dataclass
-from os import getenv
+from os import getenv, path
 from secrets import token_hex
 
+# Banco local do painel. Fica em `instance/`, diretório que o Flask já reserva para dados
+# de máquina e que o .gitignore cobre: o espelho do warehouse é arquivo seu, nunca do
+# repositório. É arquivo, não memória, porque o mesmo `python app.py` que abre a TV precisa
+# achar as mesmas linhas na próxima vez — e um arquivo não exige servidor de banco nenhum.
+ARQUIVO_SQLITE = path.abspath(
+    path.join(path.dirname(path.dirname(__file__)), "instance", "dw_vista_local.sqlite3")
+)
+
 opts = {
-    'GER': 'cr.Gerente',
-    'GR': 'cr.GerenteRegional',
-    'DIR': 'cr.DiretorRegional'
+    # O recorte é a coluna da cadeia de comando que diz quem manda. Os valores eram
+    # `cr.Gerente` quando o SQL era texto; no ORM viram o **nome do atributo mapeado** em
+    # `models.Cr`, e a lista continua sendo a única origem de coluna aceita numa consulta.
+    'GER': 'gerente',
+    'GR': 'gerente_regional',
+    'DIR': 'diretor_regional',
 }
 
 CHECKLISTS_VISITAS = (
@@ -56,6 +67,7 @@ class Settings:
     meta_percentual: float = 15.0
     atualizacao_segundos: int = 60
     demo: bool = False
+    esquema: str = ""
     action_api: str = ""
     cotacoes_simbolos: str = "GGPS3"
     cotacoes_segundos: int = 300
@@ -64,6 +76,18 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         demo = _flag("MODO_DEMO")
+        uri = getenv("DB_URI", "").strip()
+        # Sem DB_URI o painel lê do SQLite local: o app cria o schema, e
+        # `python -m services.semente` é quem popula. O SQL Server só entra em jogo quando
+        # alguém aponta a URI no ambiente — é assim que a mesma base de modelos serve o
+        # desenvolvimento offline e o warehouse de origem.
+        if not uri and not demo:
+            uri = f"sqlite:///{ARQUIVO_SQLITE}"
+        # `dw_vista.dbo` é o schema onde o warehouse real mantém as tabelas de estrutura.
+        # No SQLite não existe schema cruzado, então ali o prefixo é ignorado de propósito.
+        esquema = getenv("VISTA_ESQUEMA", "").strip() or (
+            "dw_vista.dbo" if uri.startswith("mssql") else ""
+        )
         return cls(
             host=getenv("HOST", "0.0.0.0"),
             port=_inteiro("PORT", 8092),
@@ -73,7 +97,8 @@ class Settings:
             # No modo real a chave explícita continua obrigatória: sem ela as sessões
             # mudam a cada restart e qualquer valor padrão no código seria segredo público.
             secret=getenv("SECRET", "") or (token_hex(32) if demo else ""),
-            db_uri=getenv("DB_URI", ""),
+            db_uri=uri,
+            esquema=esquema,
             default_opt=getenv("DEFAULT_OPT", "GR"),
             default_gr=getenv("DEFAULT_GR", "Parana Interior"),
             meta_percentual=_flutuador("META_PERCENTUAL", 15.0),
@@ -88,9 +113,27 @@ class Settings:
     def validar(self) -> None:
         """Falha rápido e com mensagem acionável em vez de um RuntimeError de framework."""
         problemas = []
+        # `from_env` nunca devolve URI vazia fora da demonstração (o SQLite local é o
+        # padrão), então esta regra pega o caminho programático: um Settings montado à mão
+        # sem URI apontaria para lugar nenhum e o painel mostraria zeros calados.
         if not self.db_uri and not self.demo:
-            # Em demonstração nenhuma consulta chega ao banco, então a URI não é exigida.
-            problemas.append("DB_URI ausente: configure a URI SQLAlchemy do dw_vista no .env.")
+            problemas.append("DB_URI ausente: configure a URI SQLAlchemy do banco no .env.")
+        # O que ainda vale conferir aqui é o driver. As duas fontes validadas são SQLite e
+        # SQL Server: um nome diferente daria erro obscuro só na primeira consulta do
+        # painel, e prometer suporte a um banco que ninguém compilou nos modelos seria pior.
+        if self.db_uri and not self.db_uri.startswith(("sqlite", "mssql")):
+            problemas.append(
+                f"DB_URI usa o driver {self.db_uri.split('://', 1)[0]!r}, que o painel não "
+                "conhece. As duas fontes suportadas são sqlite e mssql+pyodbc."
+            )
+        # O schema é um atributo do mapeamento, não do dialeto: com prefixo, o SQLite
+        # também o imprimiria no SQL — e lá não existe schema cruzado, então cada
+        # consulta quebraria. `from_env` nunca chega aqui com essa combinação.
+        if self.esquema and self.db_uri.startswith("sqlite"):
+            problemas.append(
+                "VISTA_ESQUEMA exige um DB_URI de SQL Server: no SQLite o prefixo "
+                "quebraria todas as consultas. Deixe VISTA_ESQUEMA em branco."
+            )
         if not self.secret:
             problemas.append("SECRET ausente: defina a chave de sessão do Flask no .env.")
         if self.default_opt not in opts:

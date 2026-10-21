@@ -3,13 +3,23 @@
 Cada teste aqui corresponde a um item da lista que a auditoria da Fase 1 definiu como
 verdade que nenhuma fase pode quebrar. Os números de item estão nos docstrings para
 permitir rastrear o requisito até a entrega.
+
+O item 2 é o único que mudou de letra na refactorização ORM, e isso foi decisão explícita:
+ele dizia que os filtros de negócio "permanecem no SQL texto das rotas". O que se queria
+preservar nunca foi o texto — é o filtro. Aqui eles continuam existindo, só que escritos
+uma vez nos modelos e compilados pelo SQLAlchemy para os dois bancos. O que se testa, por
+conseguinte, é a consulta compilada (com `Status = 85` e `Expirada = 0` ligados), não a
+string que saía da rota. A comparação entre SQLite e SQL Server está em
+`tests/test_portabilidade.py`.
 """
 
 import pytest
 
 from app import create_app
+from models import Cr
 from services import metricas, showcase
 from services.cotacoes import FalhaDeCotacao
+from services.metricas import IndicadoresWarehouse
 from utils.config import CHECKLISTS_VISITAS, Settings
 
 # ---------------------------------------------------------------- item 1
@@ -68,14 +78,18 @@ def sem_backoff(monkeypatch):
 
 @pytest.fixture()
 def tudo_quebrado(monkeypatch):
-    """Warehouse e provedor fora do ar ao mesmo tempo — o pior dia possível da TV."""
+    """Warehouse e provedor fora do ar ao mesmo tempo — o pior dia possível da TV.
+
+    A folha é método de `IndicadoresWarehouse`, não função de módulo: é a instância que o
+    app consulta, e é nela que a exceção precisa nascer para o teste dizer a verdade.
+    """
     def estourar(nome):
         def _folha(*args, **kwargs):
             raise RuntimeError(f"{nome} fora do ar")
         return _folha
 
     for folha in FOLHAS:
-        monkeypatch.setattr(metricas, folha, estourar(folha))
+        monkeypatch.setattr(IndicadoresWarehouse, folha, estourar(folha))
     monkeypatch.setattr("services.cotacoes.buscar",
                         lambda *a, **k: (_ for _ in ()).throw(FalhaDeCotacao("provedor fora do ar")))
     return None
@@ -182,18 +196,23 @@ def test_modo_demo_registra_so_o_painel():
     demo = create_app(_settings(db_uri="", demo=True))
     assert "vista_atualizador" in demo.extensions
     assert "vista_cotacoes" not in demo.extensions
-    assert demo.config["VISTA_FONTE"] is showcase
+    assert demo.config["VISTA_FONTE"] is showcase.INDICADORES
 
 
 # ---------------------------------------------------------------- item 2 e segurança
 @pytest.mark.parametrize("opt,coluna", [
-    ("GER", "cr.Gerente"),
-    ("GR", "cr.GerenteRegional"),
-    ("DIR", "cr.DiretorRegional"),
+    ("GER", Cr.gerente),
+    ("GR", Cr.gerente_regional),
+    ("DIR", Cr.diretor_regional),
 ])
 def test_a_whitelist_de_recorte_persiste(opt, coluna):
-    """Item 2: os três recortes continuam sendo os únicos interpoláveis no SQL."""
-    assert metricas.coluna_de_filtro(opt) == coluna
+    """Item 2: os três recortes continuam sendo os únicos aceitos numa consulta.
+
+    Antes a whitelist devolvia o nome de uma coluna para ser interpolada no texto do SQL;
+    agora ela devolve a própria coluna mapeada. É uma garantia mais forte, não mais fraca:
+    um `opt` fora da lista não produz string nenhuma para interpolar.
+    """
+    assert metricas.coluna_de_filtro(opt) is coluna
 
 
 @pytest.mark.parametrize("injetado", [
@@ -203,28 +222,33 @@ def test_fora_da_whitelist_nao_vira_sql(injetado):
     assert metricas.coluna_de_filtro(injetado) is None
 
 
-@pytest.mark.parametrize("funcao,args", [
-    ("tarefas_total", ()),
-    ("tarefas_dia", ()),
-    ("visitas_mes", ()),
-    ("visitas_dia", ()),
-    ("escalonadas", ()),
+@pytest.mark.parametrize("funcao", [
+    "tarefas_total", "tarefas_dia", "visitas_mes", "visitas_dia", "escalonadas",
 ])
-def test_os_filtros_de_negocio_continuam_no_sql(capture_sql, funcao, args):
-    """Item 2: `Status = 85`, `Expirada = 0`, `Escalonado` e os checklists não mudaram."""
-    getattr(metricas, funcao)(*("cr.GerenteRegional", "Parana Interior", *args))
-    sql = capture_sql["sql"].upper()
+def test_os_filtros_de_negocio_continuam_na_consulta(capture_sql, funcao):
+    """Item 2: `Status = 85`, `Expirada = 0`, `Escalonado` e os checklists não mudaram.
 
+    O que se assina é a consulta compilada com os valores ligados — a predicate continua a
+    mesma do SQL original, só que declarada uma vez em `services/metricas.py`.
+    """
+    folha = getattr(metricas.INDICADORES, funcao)
+    folha(Cr.gerente_regional, "Parana Interior")
+    consulta = capture_sql["consultas"][-1]
+    sql = consulta["sem_sintaxe"]
+
+    assert "DM_CR.GERENTEREGIONAL = 'PARANA INTERIOR'" in sql
+    assert "TAREFA.EXPIRADA = 0" in sql
     if funcao.startswith("visitas"):
-        assert "CHECKLISTID IN" in sql
+        assert "TAREFA.CHECKLISTID IN" in sql
         # Os 5 checklists são parâmetros vinculados, não texto interpolado.
-        valores = set(capture_sql["params"].values())
+        valores = set(consulta["params"].values())
         assert len(valores & set(CHECKLISTS_VISITAS)) == 5
+        assert all(c not in sql for c in CHECKLISTS_VISITAS)
     if funcao.startswith("tarefas"):
-        assert "EXPIRADA = 0" in sql
-        assert "STATUS = 85" in sql
+        assert "TAREFA.STATUS = 85" in sql
     if funcao == "escalonadas":
-        assert "ESCALONADO" in sql
+        assert "TAREFA.ESCALONADO > 0" in sql
+        assert "TAREFA.STATUS IN" in sql
 
 
 def test_nenhum_segredo_aparece_em_resposta_http(monkeypatch):

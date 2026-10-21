@@ -11,7 +11,7 @@ visitas_bp = Blueprint("Visitas de Supervisores", __name__)
 def visitasMes(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.visitas_mes(campo, gr)), 200
 
@@ -22,6 +22,6 @@ def visitasMes(opt, gr):
 def visitasDia(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.visitas_dia(campo, gr)), 200

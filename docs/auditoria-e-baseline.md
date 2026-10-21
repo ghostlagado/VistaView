@@ -196,6 +196,15 @@ Cada fase abaixo precisa manter estas verdades:
 1. As 13 rotas JSON existentes continuam com o mesmo path, método e forma de resposta.
 2. Os filtros de negócio (`Status = 85`, `Expirada = 0`, `Escalonado`, os 5 checklists, a whitelist
    `GER/GR/DIR`) permanecem inalterados, exceto onde um bug for corrigido e registrado aqui.
+   **Registro de 2026-10-21:** a refactorização ORM mudou a *letra* deste critério, com
+   autorização explícita de quem manteve o requisito até aqui. A frase original pedia que os
+   filtros "permanecessem no SQL das rotas"; o que se quis preservar sempre foi o filtro, não o
+   texto. Todos continuam existindo — `Status = 85`, `Expirada = 0`, `Escalonado > 0`, os cinco
+   checklists por bind e a whitelist de recorte — agora escritos uma vez em `models/` +
+   `services/metricas.py` e compilados pelo SQLAlchemy para SQLite e SQL Server. A whitelist
+   ficou mais forte: ela devolve a coluna mapeada, então um `opt` fora da lista não produz
+   string nenhuma para interpolar. O que mudou de verificável é o alvo da asserção (a consulta
+   compilada, não o texto da rota), e isso está descrito em `docs/arquitetura.md`.
 3. `/` renderiza mesmo com falha de qualquer indicador individual ou do provedor de cotações.
 4. O modo demo não toca no banco real. A parte "visualmente identificável" do critério foi
    relaxada em 2026-10-20 pelo refinamento de navbar, que removeu o selo DEMO da tela; ver a
@@ -208,9 +217,9 @@ Cada fase abaixo precisa manter estas verdades:
 | Critério | Teste que o trava |
 | --- | --- |
 | 1 — rotas e formas inalteradas | `test_regressao.py::o_mapa_de_rotas_e_o_da_baseline_mais_a_rota_de_cotacoes` (comparação com o conjunto congelado na auditoria), `as_rotas_de_indicador_aceitam_so_get`, `test_contracts.py::toda_chamada_fetch_existe_no_back_end` |
-| 2 — filtros de negócio | `test_regressao.py::os_filtros_de_negocio_continuam_no_sql` (5 casos, parâmetros de bind conferidos), `a_whitelist_de_recorte_persiste`, `fora_da_whitelist_nao_vira_sql` |
+| 2 — filtros de negócio | `test_regressao.py::os_filtros_de_negocio_continuam_na_consulta` (5 casos, asserção na consulta compilada para os dois bancos e nos bind values), `a_whitelist_de_recorte_persiste` (agora comparando a coluna mapeada), `fora_da_whitelist_nao_vira_sql`, `test_calculos.py::opt_sempre_resolve_para_coluna_da_whitelist`, `injecao_via_opt_nao_chega_ao_banco` |
 | 3 — tela resiste a falha | `a_pagina_sai_mesmo_com_tudo_fora_do_ar`, `o_ciclo_nao_quebra_com_indicadores_fora_do_ar`, `o_provedor_fora_do_ar_nao_derruba_o_snapshot` |
 | 4 — demo isolado | `test_demo.py::as_rotas_de_demo_nao_tocam_o_banco`, `o_ciclo_real_nao_se_confunde_com_demo`, `showcase_nao_importa_nada_de_dados_reais`; a identificação saiu da tela e virou `test_o_modo_fica_registrado_no_dom` + `test_o_demo_nao_ganha_badge_na_tela` (ver [`docs/modo-demo.md`](modo-demo.md)) |
 | 5 — uma fila de cotações | `test_regressao.py::nenhuma_requisicao_http_chama_o_provedor`, `test_cotacoes.py` (verde único, cache lido por todos) |
-| 6 — suíte verde junto | `python -m pytest -q` → **186 passed** (30 na baseline da Fase 1; as fases 5 a 8 somaram demo, cotações e regressão, o refinamento de layout de 2026-10-20 somou `test_layout_tv.py` e a liberada do demo sem `SECRET` somou 3 testes em `test_demo.py`) |
+| 6 — suíte verde junto | `python -m pytest -q` → **231 passed** (30 na baseline da Fase 1; as fases 5 a 8 somaram demo, cotações e regressão, o refinamento de layout de 2026-10-20 somou `test_layout_tv.py` e a liberada do demo sem `SECRET` somou 3 testes em `test_demo.py`; a refactorização ORM de 2026-10-21 somou `test_portabilidade.py` (45: as 13 folhas compiladas para SQL Server e SQLite, o painel executado contra um SQLite semeado e o recusa de esquema em banco errado) e reescreveu as asserções de `test_calculos.py`, `test_data_referencia.py`, `test_regressao.py` e `test_demo.py` para o contrato de objeto em vez de módulo) |
 

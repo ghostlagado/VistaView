@@ -9,6 +9,7 @@ from utils.blueprints import bps
 from flask_cors import CORS
 from utils.config import SETTINGS
 from utils.db import db
+import models
 from services import metricas, showcase
 from services.cotacoes import AtualizadorCotacoes, normalizar_simbolos
 from services.realtime import AtualizadorPainel, registrar_handlers
@@ -34,11 +35,27 @@ def create_app(settings=SETTINGS):
         app.register_blueprint(bp, url_prefix=url_prefix)
 
     db.init_app(app)
+    # O prefixo `dw_vista.dbo` é decisão de banco, tomada uma vez aqui: no SQL Server as
+    # tabelas de estrutura vivem em outro database da mesma instância; no SQLite não existe
+    # schema cruzado e o prefixo é removido. Tem de acontecer antes da primeira consulta,
+    # porque o SQLAlchemy compila o schema que estiver valendo naquele momento.
+    models.aplicar_esquema(settings.esquema)
     with app.app_context():
-        db.create_all()
+        # Criar tabelas só faz sentido no espelho local. Contra o warehouse seria um
+        # `CREATE TABLE` num banco que este painel apenas lê — nunca escritura.
+        if settings.db_uri.startswith("sqlite"):
+            db.create_all()
+            # Zero linhas é o quadro "tudo 0" na TV, impossível de distinguir de um
+            # recorte errado. É o único caso em que o boot avisa em vez de só mostrar.
+            if not settings.demo and db.session.query(models.Tarefa).count() == 0:
+                app.logger.warning(
+                    "O espelho SQLite %s está vazio: rode `python -m services.semente` "
+                    "para popular, ou configure DB_URI para o warehouse real.",
+                    settings.db_uri)
 
-    # Única decisão sobre de onde vêm os indicadores: rotas e tempo real usam o mesmo.
-    indicadores = showcase if settings.demo else metricas
+    # Única decisão sobre de onde vêm os indicadores: rotas e tempo real usam o mesmo
+    # objeto, que tem sempre o mesmo contrato (as 13 folhas + `painel`).
+    indicadores = showcase.INDICADORES if settings.demo else metricas.INDICADORES
     app.config["VISTA_FONTE"] = indicadores
 
     # Única decisão sobre de onde vêm as cotações. Em demonstração a faixa é sintética,

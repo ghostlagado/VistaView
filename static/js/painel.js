@@ -1,7 +1,8 @@
 /*
  * Renderizador do painel para TV.
  *
- * Desenha o payload de `services.metricas.painel` — a mesma forma que o Socket.IO entrega
+ * Desenha o payload de `painel()` da fonte ativa (`IndicadoresWarehouse` ou
+ * `IndicadoresDemonstracao`) — a mesma forma que o Socket.IO entrega
  * e que o caminho HTTP individual entrega. Não refaz gráficos nem listas do zero: atualiza
  * os objetos já criados, para que a tela não pisca a cada ciclo.
  */

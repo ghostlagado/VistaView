@@ -11,7 +11,7 @@ general_bp = Blueprint("Rotas Gerais", __name__)
 def visitasSup(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.top3_sups(campo, gr)), 200
 
@@ -22,7 +22,7 @@ def visitasSup(opt, gr):
 def countuni(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.top3_unidades(campo, gr)), 200
 
@@ -33,7 +33,7 @@ def countuni(opt, gr):
 def getunidades(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.unidades(campo, gr)), 200
 
@@ -44,7 +44,7 @@ def getunidades(opt, gr):
 def graphdias(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.graph_days(campo, gr)), 200
 
@@ -55,7 +55,7 @@ def graphdias(opt, gr):
 def graphdiasant(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.graph_days_ant(campo, gr)), 200
 
@@ -66,7 +66,7 @@ def graphdiasant(opt, gr):
 def getperfomance(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.performance(campo, gr)), 200
 
@@ -77,6 +77,6 @@ def getperfomance(opt, gr):
 def getGerentes(opt, gr):
     fonte = indicadores()
     campo = fonte.coluna_de_filtro(opt)
-    if not campo:
+    if campo is None:
         return jsonify({'error': 'Opção inválida'}), 400
     return jsonify(fonte.gerentes(campo, gr)), 200

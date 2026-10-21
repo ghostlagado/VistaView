@@ -17,6 +17,9 @@ from services import metricas, showcase
 from utils.config import Settings
 from utils.db import db
 
+#: A fonte de demonstração é um objeto (as mesmas folhas do warehouse), não mais o módulo.
+DEMO = showcase.INDICADORES
+
 
 def _settings(**over):
     base = dict(
@@ -93,7 +96,7 @@ def test_as_rotas_de_demo_nao_tocam_o_banco(demo, sem_banco):
 def test_sem_demo_as_mesmas_rotas_consultam_o_banco(app, capture_sql):
     """O espelho do teste acima: sem demo, a fonte real continua sendo o warehouse."""
     capture_sql["rows"] = [{"GERENTE": "x", "TOTAL": 1}]
-    app.config["VISTA_FONTE"] = metricas
+    app.config["VISTA_FONTE"] = metricas.INDICADORES
     with app.test_client() as cliente:
         cliente.get("/tarefas/total/GR/Parana Interior")
     assert "TAREFA" in capture_sql["sql"].upper()
@@ -116,8 +119,8 @@ def test_showcase_nao_importa_nada_de_dados_reais():
 def test_payload_do_demo_tem_as_mesmas_chaves_do_real(app, capture_sql):
     agora = datetime(2026, 10, 20, 15, 30)
     with app.app_context():
-        reais = set(metricas.painel("GR", "Parana Interior", agora))
-    sinteticos = set(showcase.painel("GR", "Parana Interior", agora))
+        reais = set(metricas.INDICADORES.painel("GR", "Parana Interior", agora))
+    sinteticos = set(DEMO.painel("GR", "Parana Interior", agora))
     assert sinteticos == reais
 
 
@@ -133,13 +136,13 @@ def test_forma_de_cada_rota_preservada_em_demo(demo, rota, chave):
 
 def test_a_regra_de_meta_e_a_mesma_em_demo():
     agora = datetime(2026, 10, 20, 15, 30)
-    p = showcase.painel("GR", "Parana Interior", agora, meta_percentual=15)
+    p = DEMO.painel("GR", "Parana Interior", agora, meta_percentual=15)
     assert p["metaMes"] == round(p["mesAnterior"] * 1.15)
     assert p["gapMes"] == p["totalMes"] - p["metaMes"]
 
 
 def test_janeiro_referencia_dezembro_do_ano_anterior_em_demo():
-    p = showcase.painel("GR", "Parana Interior", datetime(2027, 1, 5, 12, 0))
+    p = DEMO.painel("GR", "Parana Interior", datetime(2027, 1, 5, 12, 0))
     assert p["metaMes"] >= 0
     assert p["diasAnt"]["dia"] == list(range(1, 6))
 
@@ -147,19 +150,19 @@ def test_janeiro_referencia_dezembro_do_ano_anterior_em_demo():
 # ------------------------------------------------------------------ coerência
 def test_os_mesmos_numeros_se_repetem_no_mesmo_instante():
     agora = datetime(2026, 10, 20, 15, 30)
-    assert showcase.painel("GR", "Parana Interior", agora) == \
-        showcase.painel("GR", "Parana Interior", agora)
+    assert DEMO.painel("GR", "Parana Interior", agora) == \
+        DEMO.painel("GR", "Parana Interior", agora)
 
 
 def test_o_painel_anda_durante_o_dia():
-    manha = showcase.painel("GR", "Parana Interior", datetime(2026, 10, 20, 8, 0))
-    tarde = showcase.painel("GR", "Parana Interior", datetime(2026, 10, 20, 18, 0))
+    manha = DEMO.painel("GR", "Parana Interior", datetime(2026, 10, 20, 8, 0))
+    tarde = DEMO.painel("GR", "Parana Interior", datetime(2026, 10, 20, 18, 0))
     assert tarde["totalDia"] > manha["totalDia"]
     assert tarde["totalMes"] >= manha["totalMes"]
 
 
 def test_rankings_vem_ordenados_e_sem_duplicidade():
-    p = showcase.painel("GR", "Parana Interior", datetime(2026, 10, 20, 15, 30))
+    p = DEMO.painel("GR", "Parana Interior", datetime(2026, 10, 20, 15, 30))
     for bloco in (p["top3Uni"], p["top3Sup"], p["gerentes"], p["unidades"]):
         totais = bloco["total"]
         assert totais == sorted(totais, reverse=True)
@@ -169,7 +172,7 @@ def test_rankings_vem_ordenados_e_sem_duplicidade():
 
 def test_a_serie_do_dia_bate_com_a_consulta():
     agora = datetime(2026, 10, 20, 15, 30)
-    p = showcase.painel("GR", "Parana Interior", agora)
+    p = DEMO.painel("GR", "Parana Interior", agora)
     assert p["dias"]["dia"] == list(range(1, agora.day + 1))
     assert p["dias"]["total"][-1] == p["totalDia"]
     assert len(p["diasAnt"]["dia"]) == agora.day
@@ -203,7 +206,7 @@ def test_o_modo_fica_registrado_no_dom(demo, app):
 def test_o_ciclo_de_atualizacao_usa_a_fonte_do_demo(demo):
     atualizador = demo.extensions["vista_atualizador"]
     assert atualizador.nome_ciclo == "demo"
-    assert demo.config["VISTA_FONTE"] is showcase
+    assert demo.config["VISTA_FONTE"] is showcase.INDICADORES
     assert demo.config["VISTA_COTACOES"] is showcase.cotacoes
 
     dados = atualizador.calcular(demo)

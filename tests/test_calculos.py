@@ -1,4 +1,9 @@
-"""Regras de negócio e cálculo dos indicadores (baseline da Fase 1)."""
+"""Regras de negócio e cálculo dos indicadores (baseline da Fase 1, agora em ORM).
+
+Estes testes não conferem texto montado à mão: conferem a consulta compilada para os dois
+bancos (ver `capture_sql` em `tests/conftest.py`), porque a asserção que importa é "este
+filtro está na consulta", e não "saiu exatamente esta string".
+"""
 
 import pytest
 
@@ -47,27 +52,36 @@ def test_escalonadas_devolve_objeto_total(client, capture_sql):
 
 
 @pytest.mark.parametrize(
-    "opt,campo",
-    [("GER", "cr.Gerente"), ("GR", "cr.GerenteRegional"), ("DIR", "cr.DiretorRegional")],
+    "opt,coluna",
+    [("GER", "Gerente"), ("GR", "GerenteRegional"), ("DIR", "DiretorRegional")],
 )
-def test_opt_sempre_resolve_para_coluna_da_whitelist(capture_sql, client, opt, campo):
+def test_opt_sempre_resolve_para_coluna_da_whitelist(capture_sql, client, opt, coluna):
+    """O recorte escolhido vira exatamente a coluna mapeada correspondente — nunca texto.
+
+    A asserção é no nome físico (`GerenteRegional`), porque é ele que tem de aparecer no
+    `WHERE`; o valor do URL continua como bind, igual nos dois bancos.
+    """
     client.get(f"/tarefas/total/{opt}/gr")
-    assert f"WHERE {campo} = :gr" in capture_sql["sql"]
+    assert f".[{coluna}] = " in capture_sql["sql"]
+    assert f'."{coluna}" = ' in capture_sql["sqlite"]
+    assert f".[{coluna}] = 'gr'" in capture_sql["com_valores"]
 
 
 def test_injecao_via_opt_nao_chega_ao_banco(capture_sql, client):
     resp = client.get("/tarefas/total/GR' OR 1=1--/gr")
     assert resp.status_code == 400
-    assert capture_sql["sql"] is None
+    assert capture_sql["consultas"] == []
 
 
 def test_parametros_de_checklist_sao_os_configurados(capture_sql, client):
+    """Os cinco checklists entram como bind values, nunca interpolados no texto."""
     client.get("/visitas/mes/GR/gr")
-    usados = sorted(
-        v for k, v in capture_sql["params"].items() if k.startswith("checklist")
-    )
+    usados = sorted(v for v in capture_sql["params"].values() if v in CHECKLISTS_VISITAS)
     assert usados == sorted(CHECKLISTS_VISITAS)
     assert len(CHECKLISTS_VISITAS) == 5
+    # O texto executado tem placeholders; os UUIDs só aparecem nos valores ligados.
+    assert "ChecklistId" in capture_sql["sqlite"]
+    assert all(checklist not in capture_sql["sqlite"] for checklist in CHECKLISTS_VISITAS)
 
 
 def test_whitelist_de_opts_nao_muda_sem_necessidade():

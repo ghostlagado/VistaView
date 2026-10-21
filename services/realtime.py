@@ -55,8 +55,10 @@ class AtualizadorPainel:
     # -- ciclo ---------------------------------------------------------
     def calcular(self, app):
         if self._calcular is None:
-            from services.metricas import painel
-            self._calcular = painel
+            # Sem injeção explícita, a fonte é a mesma das rotas. Cair num import direto
+            # de `services.metricas` aqui faria um painel de demonstração consultar o
+            # warehouse nas costas de quem configurou o modo.
+            self._calcular = app.config["VISTA_FONTE"].painel
         with app.app_context():
             return self._calcular(*self.recorte)
 
