@@ -46,7 +46,7 @@ não há migrações e `db.create_all()` é no-op.
 | Escalonadas | `/tarefas/escalonadas` | `Escalonado > 0`, `Status IN (25, 10, 70)` — **sem** filtro de mês |
 | Performance | `/get_performance` | `Escalonado = 0` → no prazo; `> 0` → fora do prazo |
 | Top 3 unidades | `/top3_uni` | ranking por `Nivel_03` |
-| Unidades completas | `/get_unidades` | lista usada no marquee |
+| Unidades completas | `/get_unidades` | lista usada na faixa de unidades do rodapé |
 | Top 3 supervisores | `/top3_sups` | por `RECURSO.Nome` de quem finalizou |
 | Gerências | `/get_gerentes` | por `DM_CR.Gerente` |
 | Série diária | `/graph_days`, `/graph_days_ant` | mês atual × mês anterior |
@@ -197,7 +197,9 @@ Cada fase abaixo precisa manter estas verdades:
 2. Os filtros de negócio (`Status = 85`, `Expirada = 0`, `Escalonado`, os 5 checklists, a whitelist
    `GER/GR/DIR`) permanecem inalterados, exceto onde um bug for corrigido e registrado aqui.
 3. `/` renderiza mesmo com falha de qualquer indicador individual ou do provedor de cotações.
-4. O modo demo não toca no banco real e é visualmente identificável.
+4. O modo demo não toca no banco real. A parte "visualmente identificável" do critério foi
+   relaxada em 2026-10-20 pelo refinamento de navbar, que removeu o selo DEMO da tela; ver a
+   nota na tabela abaixo.
 5. Nenhum cliente conectado gera uma chamada ao provedor de cotações por conta própria.
 6. `tests/` passa em conjunto com os testes novos de cada fase.
 
@@ -208,7 +210,7 @@ Cada fase abaixo precisa manter estas verdades:
 | 1 — rotas e formas inalteradas | `test_regressao.py::o_mapa_de_rotas_e_o_da_baseline_mais_a_rota_de_cotacoes` (comparação com o conjunto congelado na auditoria), `as_rotas_de_indicador_aceitam_so_get`, `test_contracts.py::toda_chamada_fetch_existe_no_back_end` |
 | 2 — filtros de negócio | `test_regressao.py::os_filtros_de_negocio_continuam_no_sql` (5 casos, parâmetros de bind conferidos), `a_whitelist_de_recorte_persiste`, `fora_da_whitelist_nao_vira_sql` |
 | 3 — tela resiste a falha | `a_pagina_sai_mesmo_com_tudo_fora_do_ar`, `o_ciclo_nao_quebra_com_indicadores_fora_do_ar`, `o_provedor_fora_do_ar_nao_derruba_o_snapshot` |
-| 4 — demo isolado | `test_demo.py::as_rotas_de_demo_nao_tocam_o_banco`, `o_painel_marca_demo_no_cabecalho`, `o_ciclo_real_nao_se_confunde_com_demo`, `showcase_nao_importa_nada_de_dados_reais` |
+| 4 — demo isolado | `test_demo.py::as_rotas_de_demo_nao_tocam_o_banco`, `o_ciclo_real_nao_se_confunde_com_demo`, `showcase_nao_importa_nada_de_dados_reais`; a identificação saiu da tela e virou `test_o_modo_fica_registrado_no_dom` + `test_o_demo_nao_ganha_badge_na_tela` (ver [`docs/modo-demo.md`](modo-demo.md)) |
 | 5 — uma fila de cotações | `test_regressao.py::nenhuma_requisicao_http_chama_o_provedor`, `test_cotacoes.py` (verde único, cache lido por todos) |
-| 6 — suíte verde junto | `python -m pytest -q` → **169 passed** (30 na baseline da Fase 1; as fases 5 a 8 somaram demo, cotações e regressão) |
+| 6 — suíte verde junto | `python -m pytest -q` → **183 passed** (30 na baseline da Fase 1; as fases 5 a 8 somaram demo, cotações e regressão, e o refinamento de layout de 2026-10-20 somou `test_layout_tv.py`) |
 
